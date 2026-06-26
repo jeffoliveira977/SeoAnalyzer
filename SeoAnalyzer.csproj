@@ -1,0 +1,41 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<RootNamespace>SeoAnalyzer</RootNamespace>
+		<AssemblyName>SeoAnalyzer</AssemblyName>
+
+		<PackageId>SeoAnalyzer</PackageId>
+		<Version>1.0.0</Version>
+		<Authors>Jeff Oliveira</Authors>
+		<Company>Jeff Oliveira</Company>
+		<Description>A lightweight, high-performance C# library designed for deep on-page SEO analysis. It parses raw HTML or live URLs to deliver structured diagnostic reports complete with automated audits, actionable fix recommendations, and a dynamic health score (0–100).</Description>
+		<PackageTags>seo;html;analyzer;audit;on-page;crawler;metadata;semantic-web;anglesharp;dotnet9</PackageTags>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+
+		<RepositoryUrl>https://github.com/jeffoliveira977/SeoAnalyzer</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageProjectUrl>https://github.com/jeffoliveira977/SeoAnalyzer</PackageProjectUrl>
+
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<NoWarn>$(NoWarn);CS1591</NoWarn>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="AngleSharp" Version="1.5.1" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<EmbeddedResource Include="Resources\stopwords-iso.json" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
+
+</Project>

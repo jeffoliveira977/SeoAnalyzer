@@ -1,0 +1,34 @@
+name: BuildAndPack
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-publish:
+    permissions:
+      contents: read
+      id-token: write
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: dotnet pack
+        run: dotnet pack -c Release
+
+      - name: NuGet login (OIDC → temp API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: JeffOliveira
+
+      - name: push to NuGet
+        run: |
+          dotnet nuget push bin/Release/*.nupkg \
+            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
+            --source https://api.nuget.org/v3/index.json
