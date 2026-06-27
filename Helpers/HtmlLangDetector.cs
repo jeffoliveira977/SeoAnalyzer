@@ -1,9 +1,9 @@
-﻿using AngleSharp.Dom;
+using AngleSharp.Dom;
 
-namespace SeoAnalyzer;
+namespace SeoAnalyzer.Helpers;
 
 /// <summary>Normalizes the HTML lang attribute (e.g. "pt-BR" → "pt").</summary>
-public static partial class HtmlLangDetector
+internal static partial class HtmlLangDetector
 {
     public static string Detect(IDocument document, string fallback = "en")
     {

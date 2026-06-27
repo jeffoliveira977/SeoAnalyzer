@@ -1,17 +1,11 @@
 using AngleSharp.Dom;
-using System.Text.RegularExpressions;
+using SeoAnalyzer.Models;
 
-namespace SeoAnalyzer;
+namespace SeoAnalyzer.Rules.SEO;
 
 /// <summary>Extracts and ranks keywords from main page content.</summary>
 public static partial class CommonKeywordsRules
 {
-    [GeneratedRegex(@"\p{L}+", RegexOptions.Compiled)]
-    private static partial Regex LettersOnlyRegex();
-
-    [GeneratedRegex(@"\n{2,}", RegexOptions.Compiled)]
-    private static partial Regex ParagraphSeparatorRegex();
-
     public static List<SeoAudit> Execute(IDocument document)
     {
         var audits = new List<SeoAudit>();
@@ -46,12 +40,13 @@ public static partial class CommonKeywordsRules
             Title = "Common Keywords Presence",
             Passed = hasKeywords,
             Value = hasKeywords ? string.Join(", ", keywords) : "No common commercial keywords detected.",
-            Weight = 6,
+            Weight = 3,
             Recommendation = hasKeywords
                 ? null
                 : "Consider adding relevant commercial keywords in title and first paragraph if applicable."
         });
     }
+
     private static string ExtractBodyText(IDocument document)
     {
         var content =
@@ -62,23 +57,22 @@ public static partial class CommonKeywordsRules
         if (content == null)
             return string.Empty;
 
-        var blocks = content.QuerySelectorAll("article, section, div")
-                .Where(static e => e.QuerySelector("script,style,noscript") == null && !IsChrome(e))
-                .Select(static e => e.TextContent.Trim())
-                .Where(static t => t.Length > 300)
-                .Where(static t => LettersOnlyRegex().Matches(t).Count >= 50)
-                .OrderByDescending(ScoreBlock)
-                .Take(3);
+        if (content.Clone() is not IElement clone) return string.Empty;
 
-        return string.Join("\n\n", blocks);
-    }
+        foreach (var el in clone.QuerySelectorAll("script, style, noscript"))
+        {
+            el.Remove();
+        }
 
-    private static int ScoreBlock(string text)
-    {
-        var words = LettersOnlyRegex().Matches(text).Count;
-        var paragraphs = ParagraphSeparatorRegex().Matches(text).Count;
+        foreach (var el in clone.QuerySelectorAll("*"))
+        {
+            if (IsChrome(el))
+            {
+                el.Remove();
+            }
+        }
 
-        return words + paragraphs * 120;
+        return clone.TextContent;
     }
 
     private static string[] RankKeywords(string text, int topN)

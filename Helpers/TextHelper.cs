@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 namespace SeoAnalyzer;
 
 /// <summary>Text normalization and stopwords for keyword analysis.</summary>
-public static partial class TextHelper
+internal static partial class TextHelper
 {
     private static FrozenSet<string> _stopwords = [];
 

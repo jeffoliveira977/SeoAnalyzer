@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace SeoAnalyzer;
+namespace SeoAnalyzer.Models;
 
 /// <summary>A single check item in the report.</summary>
 public sealed class SeoAudit
@@ -21,4 +21,8 @@ public sealed class SeoAudit
     /// <summary>Structured details (images, headings, meta tags, etc.).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public object? Details { get; set; }
+
+    /// <summary>Category of the audit (SEO or Performance).</summary>
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public AuditCategory Category { get; init; } = AuditCategory.Seo;
 }

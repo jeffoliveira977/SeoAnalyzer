@@ -1,19 +1,20 @@
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using System.Text.RegularExpressions;
+using SeoAnalyzer.Models;
 
-namespace SeoAnalyzer;
+namespace SeoAnalyzer.Rules.SEO;
 
 /// <summary>Audits for Google Tag Manager installation and dataLayer.</summary>
-public static partial class TagManagerRules
+internal static partial class TagManagerRules
 {
     [GeneratedRegex(@"GTM-[A-Z0-9]+", RegexOptions.IgnoreCase)]
     private static partial Regex GtmContainerRegex();
 
-    public static List<SeoAudit> Execute(IDocument doc)
+    public static List<SeoAudit> Execute(IEnumerable<IElement> allScripts, IDocument doc)
     {
         var audits = new List<SeoAudit>();
-        var scripts = doc.Scripts.ToList();
+        var scripts = allScripts.OfType<IHtmlScriptElement>().ToList();
 
         AuditGtmScript(scripts, audits);
         AuditGtmNoScript(doc, audits);
@@ -33,7 +34,7 @@ public static partial class TagManagerRules
             Title = "Google Tag Manager (script)",
             Passed = hasGtmScript,
             Value = hasGtmScript ? "GTM script present" : "Google Tag Manager (script) not found.",
-            Weight = 8,
+            Weight = 1,
             Recommendation = hasGtmScript
                 ? null
                 : "Add the Google Tag Manager <script> snippet into the <head> according to GTM documentation."
@@ -50,7 +51,7 @@ public static partial class TagManagerRules
             Title = "Google Tag Manager (noscript)",
             Passed = hasNoScript,
             Value = hasNoScript ? "GTM <noscript> iframe present" : "GTM <noscript> snippet is missing.",
-            Weight = 3,
+            Weight = 1,
             Recommendation = hasNoScript
                 ? null
                 : "Add the GTM <noscript> snippet immediately after the opening <body> tag to support browsers without JavaScript."
@@ -66,7 +67,7 @@ public static partial class TagManagerRules
             Title = "GTM dataLayer",
             Passed = hasDataLayer,
             Value = hasDataLayer ? "dataLayer present" : "No dataLayer detected.",
-            Weight = 4,
+            Weight = 1,
             Recommendation = hasDataLayer ? null : "Implement a dataLayer to send events and structured information to GTM."
         });
     }

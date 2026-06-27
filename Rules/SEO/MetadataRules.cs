@@ -1,11 +1,13 @@
 using AngleSharp.Dom;
+using SeoAnalyzer.Helpers;
+using SeoAnalyzer.Models;
 
-namespace SeoAnalyzer;
+namespace SeoAnalyzer.Rules.SEO;
 
 /// <summary>Audits for meta tags, title, canonical, charset, lang and favicon.</summary>
-public static class MetadataRules
+internal static class MetadataRules
 {
-    public static List<SeoAudit> Execute(IDocument doc)
+    public static List<SeoAudit> Execute(IDocument doc, List<IElement> links)
     {
         var audits = new List<SeoAudit>();
         AuditTitle(doc, audits);
@@ -16,7 +18,7 @@ public static class MetadataRules
         AuditViewport(doc, audits);
         AuditCharset(doc, audits);
         AuditLang(doc, audits);
-        AuditFavicon(doc, audits);
+        AuditFavicon(links, audits);
 
         return audits;
     }
@@ -24,30 +26,30 @@ public static class MetadataRules
     private static void AuditTitle(IDocument doc, List<SeoAudit> audits)
     {
         var title = DomHelper.GetTitle(doc) ?? string.Empty;
-        var passed = !string.IsNullOrWhiteSpace(title) && title.Length >= 30 && title.Length <= 60;
+        var passed = title.Length > 15;
 
         audits.Add(new SeoAudit
         {
             Title = "Page Title",
             Passed = passed,
             Value = string.IsNullOrWhiteSpace(title) ? "Page title missing." : title,
-            Weight = 8,
-            Recommendation = passed ? null : "The title should be between 30 and 60 characters for better SERP display.",
+            Weight = 5,
+            Recommendation = passed ? null : "The title should be above 15 characters.",
         });
     }
 
     private static void AuditDescription(IDocument doc, List<SeoAudit> audits)
     {
-        var description = DomHelper.GetMetaContent(doc, "description");
-        var passed = !string.IsNullOrWhiteSpace(description) && description.Length >= 120 && description.Length <= 160;
+        var description = DomHelper.GetMetaContent(doc, "description") ?? string.Empty;
+        var passed = description.Length > 20;
 
         audits.Add(new SeoAudit
         {
             Title = "Meta Description",
             Passed = passed,
             Value = string.IsNullOrWhiteSpace(description) ? "Meta description missing or poorly optimized." : description,
-            Weight = 8,
-            Recommendation = passed ? null : "The meta description should be between 120 and 160 characters."
+            Weight = 5,
+            Recommendation = passed ? null : "The meta description should be above 20 characters."
         });
     }
 
@@ -61,7 +63,7 @@ public static class MetadataRules
             Title = "Canonical Tag",
             Passed = passed,
             Value = canonical,
-            Weight = 10,
+            Weight = 6,
             Recommendation = passed ? null : "The canonical tag is essential to avoid duplicate content."
         });
     }
@@ -76,7 +78,7 @@ public static class MetadataRules
             Title = "Meta Robots",
             Passed = passed,
             Value = robots,
-            Weight = 5,
+            Weight = 3,
             Recommendation = passed ? null : "Consider adding a meta robots tag to instruct search engines."
         });
     }
@@ -84,13 +86,15 @@ public static class MetadataRules
     private static void AuditKeywords(IDocument doc, List<SeoAudit> audits)
     {
         var keywords = DomHelper.GetMetaContent(doc, "keywords");
+        var passed = !string.IsNullOrWhiteSpace(keywords);
+
         audits.Add(new SeoAudit
         {
             Title = "Meta Keywords",
-            Passed = true,
-            Value = keywords,
+            Passed = passed,
+            Value = passed ? keywords : "No meta keywords tag found.",
             Weight = 1,
-            Recommendation = "Although less relevant today, meta keywords can be used for internal organization."
+            Recommendation = "Although less relevant today, you can add meta keywords for internal organization."
         });
     }
 
@@ -104,14 +108,13 @@ public static class MetadataRules
             Title = "Viewport Tag",
             Passed = passed,
             Value = viewport,
-            Weight = 5,
+            Weight = 3,
             Recommendation = passed ? null : "The viewport tag is crucial for mobile responsiveness."
         });
     }
 
     private static void AuditCharset(IDocument doc, List<SeoAudit> audits)
     {
-
         var charset = doc.QuerySelector("meta[charset]")?.GetAttribute("charset");
 
         var passed = !string.IsNullOrWhiteSpace(charset) && charset.Equals("utf-8", StringComparison.CurrentCultureIgnoreCase);
@@ -121,7 +124,7 @@ public static class MetadataRules
             Title = "Meta Charset",
             Passed = passed,
             Value = charset,
-            Weight = 3,
+            Weight = 2,
             Recommendation = passed ? null : "Use <meta charset='UTF-8'> to ensure correct character rendering."
         });
     }
@@ -137,18 +140,22 @@ public static class MetadataRules
             Title = "HTML Lang Attribute",
             Passed = passed,
             Value = lang,
-            Weight = 5,
+            Weight = 3,
             Recommendation = passed ? null : "Set the 'lang' attribute on the <html> tag to help search engines and accessibility."
         });
     }
 
-    private static void AuditFavicon(IDocument doc, List<SeoAudit> audits)
+    private static void AuditFavicon(List<IElement> links, List<SeoAudit> audits)
     {
-        var favicon = doc.QuerySelectorAll("link")
-         .FirstOrDefault(link =>
-         link.GetAttribute("rel")?
-         .Contains("icon", StringComparison.OrdinalIgnoreCase) == true)
-         ?.GetAttribute("href");
+        var favicon = links
+            .FirstOrDefault(link =>
+            {
+                var rel = link.GetAttribute("rel");
+                if (string.IsNullOrWhiteSpace(rel)) return false;
+                var tokens = rel.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                return tokens.Any(t => string.Equals(t, "icon", StringComparison.OrdinalIgnoreCase));
+            })
+            ?.GetAttribute("href");
 
         var passed = !string.IsNullOrWhiteSpace(favicon);
 
@@ -157,7 +164,7 @@ public static class MetadataRules
             Title = "Favicon",
             Passed = passed,
             Value = favicon,
-            Weight = 2,
+            Weight = 1,
             Recommendation = passed ? null : "A favicon helps brand recognition in search results."
         });
     }

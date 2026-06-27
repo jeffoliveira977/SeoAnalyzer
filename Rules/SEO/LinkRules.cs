@@ -1,10 +1,12 @@
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
+using SeoAnalyzer.Helpers;
+using SeoAnalyzer.Models;
 
-namespace SeoAnalyzer;
+namespace SeoAnalyzer.Rules.SEO;
 
-/// <summary>Audits for link counts, anchor text and external link security.</summary>
-public static class LinkRules
+/// <summary>Audits for link counts and anchor text.</summary>
+internal static class LinkRules
 {
     public static List<SeoAudit> Execute(IDocument doc)
     {
@@ -14,7 +16,6 @@ public static class LinkRules
 
         AuditLinkCounts(baseUrl, links, audits);
         AuditEmptyAnchors(links, audits);
-        AuditExternalLinksSecurity(links, audits);
 
         return audits;
     }
@@ -30,7 +31,7 @@ public static class LinkRules
             {
                 Title = "Internal vs External Links",
                 Passed = false,
-                Weight = 5,
+                Weight = 3,
                 Recommendation = "Add a canonical tag so internal links can be counted."
             });
 
@@ -52,7 +53,8 @@ public static class LinkRules
             }
 
             if (href.StartsWith('/') ||
-                href.StartsWith(baseUrl, StringComparison.OrdinalIgnoreCase))
+                href.StartsWith(baseUrl, StringComparison.OrdinalIgnoreCase) ||
+                (!href.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !href.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
             {
                 internalCount++;
             }
@@ -68,7 +70,7 @@ public static class LinkRules
             Title = "Internal vs External Links",
             Passed = internalCount > 0,
             Value = $"Internal: {internalCount}, External: {externalCount}",
-            Weight = 5,
+            Weight = 3,
             Recommendation = internalCount > 0
                 ? null
                 : "Ensure the page has internal links to help navigation and indexing."
@@ -90,50 +92,10 @@ public static class LinkRules
             Title = "Empty Anchor Text",
             Passed = passed,
             Value = emptyCount == 0 ? "All links have descriptive text." : $"{emptyCount} links without descriptive text.",
-            Weight = 7,
+            Weight = 4,
             Recommendation = passed
                 ? null
                 : "Links without text or aria-label harm SEO and accessibility."
-        });
-    }
-
-    private static void AuditExternalLinksSecurity(
-        IReadOnlyList<IHtmlAnchorElement> links,
-        List<SeoAudit> audits)
-    {
-        var riskyLinks = links.Count(link =>
-        {
-            var href = link.GetAttribute("href");
-
-            if (string.IsNullOrWhiteSpace(href) ||
-                !Uri.TryCreate(href, UriKind.Absolute, out var uri) ||
-                (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
-            {
-                return false;
-            }
-
-            if (!string.Equals(link.Target, "_blank", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            var rel = link.Relation;
-
-            if(string.IsNullOrWhiteSpace(rel)) return false;
-
-            return !rel.Contains("noopener", StringComparison.OrdinalIgnoreCase) &&
-                   !rel.Contains("noreferrer", StringComparison.OrdinalIgnoreCase);
-        });
-
-        audits.Add(new SeoAudit
-        {
-            Title = "External Links Security (noopener)",
-            Passed = riskyLinks == 0,
-            Value = riskyLinks == 0 ? "No internal links found." : $"{riskyLinks} external links missing rel='noopener'.",
-            Weight = 4,
-            Recommendation = riskyLinks == 0
-                ? null
-                : "Use rel='noopener noreferrer' on links that open in a new tab."
         });
     }
 }

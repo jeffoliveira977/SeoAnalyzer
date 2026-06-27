@@ -1,13 +1,14 @@
 using AngleSharp.Dom;
+using SeoAnalyzer.Helpers;
+using SeoAnalyzer.Models;
 
-namespace SeoAnalyzer;
+namespace SeoAnalyzer.Rules.SEO;
 
 /// <summary>Audits for Open Graph and Twitter Cards.</summary>
-public static class SocialRules
+internal static class SocialRules
 {
-
     private static readonly string[] OgFields =
-     [
+    [
         "og:title",
         "og:description",
         "og:image",
@@ -15,7 +16,7 @@ public static class SocialRules
         "og:type",
         "og:site_name",
         "og:locale"
-     ];
+    ];
 
     private static readonly string[] TwitterFields =
     [
@@ -38,56 +39,70 @@ public static class SocialRules
     private static void AuditOpenGraph(IDocument doc, List<SeoAudit> audits)
     {
         var results = OgFields
-        .Select(key =>
-        {
-            var value = DomHelper.GetMetaContent(doc, key);
-
-            return new MetaTagAuditItem
+            .Select(key =>
             {
-                Tag = key,
-                Value = value,
-                Present = !string.IsNullOrWhiteSpace(value)
-            };
-        })
-        .ToList();
+                var value = DomHelper.GetMetaContent(doc, key);
+                return new
+                {
+                    Tag = key,
+                    Value = value,
+                    Present = !string.IsNullOrWhiteSpace(value)
+                };
+            })
+            .ToList();
 
-        var passed = results.All(r => r.Present);
+        var passed = results.Any(r => r.Present);
+        var details = results
+            .Where(r => r.Present)
+            .Select(r => new MetaTagAuditItem
+            {
+                Tag = r.Tag,
+                Value = r.Value
+            })
+            .ToList();
 
         audits.Add(new SeoAudit
         {
             Title = "Open Graph",
             Passed = passed,
-            Weight = 6,
+            Weight = 1,
             Recommendation = passed ? null : "Add Open Graph tags (og:title, og:image) to improve social sharing.",
-            Details = results
+            Details = details
         });
     }
 
     private static void AuditTwitterCards(IDocument doc, List<SeoAudit> audits)
     {
         var results = TwitterFields
-       .Select(key =>
-       {
-           var value = DomHelper.GetMetaContent(doc, key);
+            .Select(key =>
+            {
+                var value = DomHelper.GetMetaContent(doc, key);
+                return new
+                {
+                    Tag = key,
+                    Value = value,
+                    Present = !string.IsNullOrWhiteSpace(value)
+                };
+            })
+            .ToList();
 
-           return new MetaTagAuditItem
-           {
-               Tag = key,
-               Value = value,
-               Present = !string.IsNullOrWhiteSpace(value)
-           };
-       })
-       .ToList();
-
-        var passed = results.All(r => r.Present);
+        var passed = results.Any(r => r.Present);
+        var details = results
+            .Where(r => r.Present)
+            .Select(r => new MetaTagAuditItem
+            {
+                Tag = r.Tag,
+                Value = r.Value
+            })
+            .ToList();
 
         audits.Add(new SeoAudit
         {
             Title = "Twitter Cards",
             Passed = passed,
-            Weight = 5,
+            Weight = 1,
             Recommendation = passed ? null : "Add Twitter Card meta tags to optimize presentation on Twitter.",
-            Details = results
+            Details = details
         });
     }
 }

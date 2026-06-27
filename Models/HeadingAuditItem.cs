@@ -1,4 +1,4 @@
-﻿namespace SeoAnalyzer;
+﻿namespace SeoAnalyzer.Models;
 
 /// <summary>Heading with incorrect hierarchy.</summary>
 public sealed class HeadingAuditItem

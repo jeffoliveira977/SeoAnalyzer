@@ -1,4 +1,4 @@
-﻿namespace SeoAnalyzer;
+﻿namespace SeoAnalyzer.Models;
 
 /// <summary>Deprecated HTML tag found on the page.</summary>
 public sealed class TagAuditItem

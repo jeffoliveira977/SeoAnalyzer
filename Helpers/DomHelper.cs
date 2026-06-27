@@ -1,9 +1,9 @@
 using AngleSharp.Dom;
 
-namespace SeoAnalyzer;
+namespace SeoAnalyzer.Helpers;
 
 /// <summary>Common HTML DOM queries.</summary>
-public static class DomHelper
+internal static class DomHelper
 {
     public static string? GetAttribute(IDocument doc, string selector, string attribute)
     {
@@ -24,7 +24,7 @@ public static class DomHelper
         return doc.Title?.Trim();
     }
 
-    /// <summary>Extracts scheme + host from canonical, base or og:url.</summary>
+    /// <summary>Extracts scheme and host from canonical, base or og:url.</summary>
     public static string? ExtractBaseUrl(IDocument doc)
     {
         var url = doc.QuerySelector("link[rel='canonical']")

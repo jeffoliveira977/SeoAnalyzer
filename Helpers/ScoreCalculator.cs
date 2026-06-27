@@ -1,16 +1,19 @@
-namespace SeoAnalyzer;
+using SeoAnalyzer.Models;
+
+namespace SeoAnalyzer.Helpers;
 
 /// <summary>Calculates score as weighted percentage of passed audits.</summary>
-public static class ScoreCalculator
+internal static class ScoreCalculator
 {
-    public static int Calculate(SeoAnalysis analysis)
+    public static int Calculate(IEnumerable<SeoAudit> audits, AuditCategory category)
     {
-        if (analysis.Audits.Count == 0) return 0;
+        var categoryAudits = audits.Where(a => a.Category == category).ToList();
+        if (categoryAudits.Count == 0) return 100;
 
-        double total = analysis.Audits.Sum(a => a.Weight);
+        double total = categoryAudits.Sum(a => a.Weight);
         if (total == 0) return 100;
 
-        double passedWeight = analysis.Audits.Where(a => a.Passed).Sum(a => a.Weight);
+        double passedWeight = categoryAudits.Where(a => a.Passed).Sum(a => a.Weight);
 
         return (int)((passedWeight / total) * 100);
     }

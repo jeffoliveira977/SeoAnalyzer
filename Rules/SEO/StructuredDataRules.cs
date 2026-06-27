@@ -1,9 +1,10 @@
 using AngleSharp.Dom;
+using SeoAnalyzer.Models;
 
-namespace SeoAnalyzer;
+namespace SeoAnalyzer.Rules.SEO;
 
 /// <summary>Audits for JSON-LD and Schema.org microdata.</summary>
-public static class StructuredDataRules
+internal static class StructuredDataRules
 {
     public static List<SeoAudit> Execute(IDocument doc)
     {
@@ -33,7 +34,7 @@ public static class StructuredDataRules
             Title = "JSON-LD Structured Data",
             Passed = passed,
             Value = passed ? count.ToString() : null,
-            Weight = 10,
+            Weight = 4,
             Recommendation = passed
                 ? null
                 : "Use JSON-LD to provide structured data and obtain Rich Snippets in Google."
@@ -49,7 +50,7 @@ public static class StructuredDataRules
             Title = "Microdata (Schema.org)",
             Passed = hasAnyStructuredData,
             Value = $"JSON-LD: {jsonLdCount}, Microdata: {count}",
-            Weight = 2,
+            Weight = 1,
             Recommendation = "Microdata is an alternative to JSON-LD, but JSON-LD is recommended by Google."
         });
     }

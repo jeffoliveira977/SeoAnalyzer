@@ -1,9 +1,11 @@
 using AngleSharp.Dom;
+using SeoAnalyzer.Helpers;
+using SeoAnalyzer.Models;
 
-namespace SeoAnalyzer;
+namespace SeoAnalyzer.Rules.SEO;
 
 /// <summary>Audits for robots.txt, sitemap and noindex (requires base URL).</summary>
-public static class IndexingRules
+internal static class IndexingRules
 {
     private record RobotsTxtResult(bool Exists, string? Content, string? Url);
 
@@ -48,7 +50,7 @@ public static class IndexingRules
             {
                 Title = "Robots.txt Presence",
                 Passed = false,
-                Weight = 5,
+                Weight = 3,
                 Recommendation = "Could not determine base URL — add a canonical tag to enable robots.txt check."
             });
             return;
@@ -59,7 +61,7 @@ public static class IndexingRules
             Title = "Robots.txt Presence",
             Passed = robots.Exists,
             Value = robots.Url,
-            Weight = 5,
+            Weight = 3,
             Recommendation = robots.Exists ? null : "Ensure robots.txt is accessible at the root of the domain."
         });
     }
@@ -88,7 +90,7 @@ public static class IndexingRules
             Title = "Sitemap XML",
             Passed = passed,
             Value = sitemapUrl ?? "No sitemap was declared in robots.txt.",
-            Weight = 5,
+            Weight = 3,
             Recommendation = passed ? null : "An XML sitemap helps search engines discover your pages."
         });
     }
@@ -106,7 +108,7 @@ public static class IndexingRules
             Title = "NoIndex",
             Passed = !isNoIndex,
             Value = isNoIndex ? "NoIndex" : "Indexable",
-            Weight = 8,
+            Weight = 5,
             Recommendation = isNoIndex ? "The noindex tag is preventing this page from being indexed." : null
         });
     }

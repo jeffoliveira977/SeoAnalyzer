@@ -1,9 +1,10 @@
 using AngleSharp.Dom;
+using SeoAnalyzer.Models;
 
-namespace SeoAnalyzer;
+namespace SeoAnalyzer.Rules.SEO;
 
 /// <summary>Audits for single H1 and heading hierarchy.</summary>
-public static class HeadingRules
+internal static class HeadingRules
 {
     public static List<SeoAudit> Execute(IDocument doc)
     {
@@ -24,7 +25,7 @@ public static class HeadingRules
             Title = "Single H1 Tag",
             Passed = passed,
             Value = count == 0 ? "No H1 tag found." : count.ToString(),
-            Weight = 8,
+            Weight = 4,
             Recommendation = passed
                 ? null
                 : count == 0
@@ -64,7 +65,6 @@ public static class HeadingRules
                 continue;
             }
 
-            // Level skip (e.g. H2 → H4) is invalid
             if (level > previousLevel + 1)
             {
                 affectedItems.Add(new HeadingAuditItem
@@ -79,18 +79,20 @@ public static class HeadingRules
 
         }
 
-        var passed = affectedItems.Count == 0;
+        var passed = affectedItems.Count == 0 && (h2 > 0 || h3 > 0);
 
         audits.Add(new SeoAudit
         {
             Title = "Heading Hierarchy",
             Passed = passed,
             Value = $"H2: {h2}, H3: {h3}",
-            Weight = 4,
+            Weight = 2,
             Recommendation = passed
                 ? null
-                : "Use heading tags (H2–H6) in a logical hierarchy without skipping levels.",
-            Details = passed ? null : affectedItems,
+                : (h2 == 0 && h3 == 0)
+                    ? "Add H2 and H3 headings to structure your content logically."
+                    : "Use heading tags (H2–H6) in a logical hierarchy without skipping levels.",
+            Details = (passed || affectedItems.Count == 0) ? null : affectedItems,
         });
     }
 }
