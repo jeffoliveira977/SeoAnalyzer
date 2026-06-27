@@ -18,10 +18,9 @@ The library has a clean, segmented API:
 
 ```csharp
 using SeoAnalyzer;
-using SeoAnalyzer.Models;
 
 // From HTML string
-SeoResult? result = await Seo.FromHtmlAsync(html);
+var result = await Seo.FromHtmlAsync(html);
 
 if (result != null)
 {
@@ -39,7 +38,7 @@ if (result != null)
 using SeoAnalyzer;
 
 // From a live URL
-AnalysisResult? result = await Seo.FromUrlAsync("https://example.com");
+var result = await Seo.FromUrlAsync("https://example.com");
 
 if (result != null)
 {
