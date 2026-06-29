@@ -1,3 +1,5 @@
+using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Reflection;
@@ -94,19 +96,6 @@ internal static partial class TextHelper
     }
 
 
-    /// <summary>Strips diacritics for word comparison.</summary>
-    public static string RemoveDiacritics(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
-
-        var sb = new StringBuilder(text.Length);
-        foreach (var ch in text.Normalize(NormalizationForm.FormD))
-            if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
-                sb.Append(ch);
-
-        return sb.ToString().Normalize(NormalizationForm.FormC);
-    }
-
     public static string NormalizeText(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return string.Empty;
@@ -127,6 +116,25 @@ internal static partial class TextHelper
             .Where(w => !removeStopwords || !IsStopword(w))];
     }
 
+    /// <summary>Strips HTML comments and collapses whitespace.</summary>
+    public static string CleanHtml(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return string.Empty;
+        return WhiteSpaceRegex().Replace(CommentsHtml().Replace(html, ""), " ").Trim();
+    }
+
+    /// <summary>Keeps the first half and last portion of a string, joined by ellipsis.</summary>
+    public static string Ellipsize(string value, int limit)
+    {
+        if (value.Length <= limit) return value;
+        int start = Math.Max(1, limit / 2);
+        int end = Math.Max(1, limit / 2 - 5);
+        if (start + end >= value.Length) return value;
+        return $"{value[..start]}...{value[^end..]}";
+    }
+
+    [GeneratedRegex(@"<!--[\s\S]*?-->")]
+    private static partial Regex CommentsHtml();
 
     [GeneratedRegex(@"[^\p{L}\p{N}\s]+")]
     private static partial Regex NonWordRegex();

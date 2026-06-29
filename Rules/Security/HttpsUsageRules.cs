@@ -5,11 +5,8 @@ namespace SeoAnalyzer.Rules.Security;
 /// <summary>Audits whether the page is served over HTTPS.</summary>
 internal static class HttpsUsageRules
 {
-    public static SeoAudit? Execute(string? requestUrl)
+    public static SeoAudit? Execute(string requestUrl)
     {
-        if (string.IsNullOrWhiteSpace(requestUrl))
-            return null;
-
         try
         {
             var uri = new Uri(requestUrl);
@@ -18,9 +15,8 @@ internal static class HttpsUsageRules
             return new SeoAudit
             {
                 Title = "HTTPS Usage",
-                Passed = passed,
+                Status = passed ? AuditStatus.Passed : AuditStatus.Failed,
                 Value = passed ? "The site uses HTTPS." : "The site does not use HTTPS.",
-                Weight = 6,
                 Recommendation = passed ? null : "Configure HTTPS for your website. HTTPS encrypts all communication, preventing interception and injection attacks.",
                 Category = AuditCategory.Security
             };

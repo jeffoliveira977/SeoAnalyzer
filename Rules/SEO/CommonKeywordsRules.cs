@@ -38,9 +38,8 @@ public static partial class CommonKeywordsRules
         audits.Add(new SeoAudit
         {
             Title = "Common Keywords Presence",
-            Passed = hasKeywords,
+            Status = hasKeywords ? AuditStatus.Passed : AuditStatus.Warning,
             Value = hasKeywords ? string.Join(", ", keywords) : "No common commercial keywords detected.",
-            Weight = 3,
             Recommendation = hasKeywords
                 ? null
                 : "Consider adding relevant commercial keywords in title and first paragraph if applicable."
@@ -77,9 +76,7 @@ public static partial class CommonKeywordsRules
 
     private static string[] RankKeywords(string text, int topN)
     {
-        var normalized = TextHelper.RemoveDiacritics(text.ToLowerInvariant());
-
-        return [..TextHelper.ExtractWords(normalized)
+        return [..TextHelper.ExtractWords(text)
                   .GroupBy(w => w)
                   .OrderByDescending(g => g.Count())
                   .Take(topN)

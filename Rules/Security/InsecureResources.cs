@@ -1,4 +1,6 @@
 using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
+using SeoAnalyzer.Helpers;
 using SeoAnalyzer.Models;
 using System;
 using System.Collections.Generic;
@@ -12,14 +14,11 @@ namespace SeoAnalyzer.Rules.Security;
 /// </summary>
 internal static class InsecureResources
 {
-    public static SeoAudit? Execute(
-        IEnumerable<IElement> scripts,
-        IEnumerable<IElement> links,
-        IEnumerable<IElement> images,
-        IEnumerable<IElement> metas,
-        string? requestUrl)
+    public static SeoAudit? Execute( 
+        IEnumerable<IElement> scripts, IEnumerable<IHtmlAnchorElement> links, IEnumerable<IElement> images, IEnumerable<IElement> metas,
+        string requestUrl)
     {
-        if (!IsHttpsPage(requestUrl)) return null;
+        if (!UrlHelper.IsHttps(requestUrl)) return null;
 
         var insecureMetas = metas
             .Select(e => new
@@ -36,6 +35,7 @@ internal static class InsecureResources
         var stylesInsecure = CollectInsecure(
             links.Where(l => string.Equals(l.GetAttribute("rel"), "stylesheet", StringComparison.OrdinalIgnoreCase)),
             "href");
+
         var imagesInsecure = CollectInsecure(images, "src");
 
         var insecure = new Dictionary<string, object>();
@@ -51,23 +51,16 @@ internal static class InsecureResources
         return new SeoAudit
         {
             Title = "Insecure Resources",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Failed,
             Value = passed
                         ? "All resources are loaded securely over HTTPS."
                         : $"{total} resource(s) are loaded or defined over HTTP on an HTTPS page.",
-            Weight = 5,
             Recommendation = passed ? null : "Update all resource and meta content URLs to use 'https://' to avoid browser security warnings and secure social sharing properties.",
             Details = passed ? null : insecure,
             Category = AuditCategory.Security
         };
     }
 
-    private static bool IsHttpsPage(string? url)
-    {
-        if (string.IsNullOrWhiteSpace(url)) return false;
-        return Uri.TryCreate(url, UriKind.Absolute, out var uri)
-            && string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase);
-    }
 
     private static List<string> CollectInsecure(IEnumerable<IElement> elements, string attribute) =>
         elements

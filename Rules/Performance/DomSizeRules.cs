@@ -14,9 +14,8 @@ internal static class DomSizeRules
         return new SeoAudit
         {
             Title = "DOM Size",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = $"The document has {totalElements} DOM elements.",
-            Weight = 3,
             Recommendation = passed ? null : "Reduce the number of DOM elements. An excessive DOM size increases memory usage and delays page rendering.",
             Category = AuditCategory.Performance
         };

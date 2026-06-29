@@ -1,20 +1,34 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using SeoAnalyzer.Models;
 
 namespace SeoAnalyzer.Helpers;
 
-/// <summary>Calculates score as weighted percentage of passed audits.</summary>
+/// <summary>Calculates score as percentage of passed/warned audits without weights.</summary>
 internal static class ScoreCalculator
 {
-    public static int Calculate(IEnumerable<SeoAudit> audits, AuditCategory category)
+    public static CategorySummary? BuildSummary(List<SeoAudit> audits, AuditCategory category)
     {
         var categoryAudits = audits.Where(a => a.Category == category).ToList();
-        if (categoryAudits.Count == 0) return 100;
+        if (categoryAudits.Count == 0) return null;
 
-        double total = categoryAudits.Sum(a => a.Weight);
-        if (total == 0) return 100;
+        int totalPassed = categoryAudits.Count(a => a.Status == AuditStatus.Passed);
+        int totalFailed = categoryAudits.Count(a => a.Status == AuditStatus.Failed);
+        int totalWarnings = categoryAudits.Count(a => a.Status == AuditStatus.Warning);
 
-        double passedWeight = categoryAudits.Where(a => a.Passed).Sum(a => a.Weight);
+        double achieved = (totalPassed * 1.0)
+                        + (totalWarnings * 0.5);
 
-        return (int)((passedWeight / total) * 100);
+        int score = (int)Math.Round((achieved / categoryAudits.Count) * 100);
+
+        return new CategorySummary
+        {
+            Score = score,
+            TotalPassed = totalPassed,
+            TotalFailed = totalFailed,
+            TotalWarnings = totalWarnings,
+            Audits = categoryAudits
+        };
     }
 }

@@ -8,10 +8,10 @@
 		<AssemblyName>SeoAnalyzer</AssemblyName>
 
 		<PackageId>SeoAnalyzer</PackageId>
-		<Version>2.0.1</Version>
+		<Version>3.0.0</Version>
 		<Authors>Jeff Oliveira</Authors>
 		<Company>Jeff Oliveira</Company>
-		<Description>A lightweight, high-performance C# library designed for deep on-page SEO analysis. It parses raw HTML or live URLs to deliver structured diagnostic reports complete with automated audits, actionable fix recommendations, and a dynamic health score (0–100).</Description>
+		<Description>A lightweight, high-performance C# library designed for deep on-page SEO, Performance and Security analysis. it fast-parses raw HTML or live URLs to deliver structured, production-ready diagnostic reports complete with automated audits, actionable fix recommendations, and segmented scores.</Description>
 		<PackageTags>seo;html;analyzer;audit;on-page;crawler;metadata;semantic-web;anglesharp;dotnet9</PackageTags>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageReadmeFile>README.md</PackageReadmeFile>

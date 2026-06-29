@@ -26,9 +26,8 @@ internal static class HtmlSizeRules
         audits.Add(new SeoAudit
         {
             Title = "HTML Size",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = $"{sizeKb:F2} KB",
-            Weight = 2,
             Recommendation = passed ? null : "The HTML is very large (over 600KB). Consider optimizing and removing excess markup.",
             Category = AuditCategory.Performance
         });

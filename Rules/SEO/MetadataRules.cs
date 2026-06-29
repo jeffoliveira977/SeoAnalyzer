@@ -1,4 +1,5 @@
 using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
 using SeoAnalyzer.Helpers;
 using SeoAnalyzer.Models;
 
@@ -7,34 +8,50 @@ namespace SeoAnalyzer.Rules.SEO;
 /// <summary>Audits for meta tags, title, canonical, charset, lang and favicon.</summary>
 internal static class MetadataRules
 {
-    public static List<SeoAudit> Execute(IDocument doc, List<IElement> links)
+    public static List<SeoAudit> Execute(IDocument doc, List<IHtmlLinkElement> headLinks)
     {
         var audits = new List<SeoAudit>();
         AuditTitle(doc, audits);
         AuditDescription(doc, audits);
-        AuditCanonical(doc, audits);
+        AuditCanonical(headLinks, audits);
         AuditRobots(doc, audits);
         AuditKeywords(doc, audits);
         AuditViewport(doc, audits);
         AuditCharset(doc, audits);
         AuditLang(doc, audits);
-        AuditFavicon(links, audits);
+        AuditFavicon(headLinks, audits);
 
         return audits;
     }
 
     private static void AuditTitle(IDocument doc, List<SeoAudit> audits)
     {
-        var title = DomHelper.GetTitle(doc) ?? string.Empty;
-        var passed = title.Length > 15;
+        var title = DomHelper.GetTitle(doc)?.Trim() ?? string.Empty;
+
+        AuditStatus titleStatus;
+        string? titleRecommendation = null;
+
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            titleStatus = AuditStatus.Failed;
+            titleRecommendation = "CRITICAL: The <title> tag is completely missing or empty. Search engines cannot index this page correctly without a title.";
+        }
+        else if (title.Length <= 15)
+        {
+            titleStatus = AuditStatus.Warning;
+            titleRecommendation = "The page title is too short (should be above 15 characters). Expand it to describe the page content better and improve CTR.";
+        }
+        else
+        {
+            titleStatus = AuditStatus.Passed;
+        }
 
         audits.Add(new SeoAudit
         {
             Title = "Page Title",
-            Passed = passed,
+            Status = titleStatus,
             Value = string.IsNullOrWhiteSpace(title) ? "Page title missing." : title,
-            Weight = 5,
-            Recommendation = passed ? null : "The title should be above 15 characters.",
+            Recommendation = titleRecommendation,
         });
     }
 
@@ -46,24 +63,24 @@ internal static class MetadataRules
         audits.Add(new SeoAudit
         {
             Title = "Meta Description",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = string.IsNullOrWhiteSpace(description) ? "Meta description missing or poorly optimized." : description,
-            Weight = 5,
             Recommendation = passed ? null : "The meta description should be above 20 characters."
         });
     }
 
-    private static void AuditCanonical(IDocument doc, List<SeoAudit> audits)
+    private static void AuditCanonical(List<IHtmlLinkElement> headLinks, List<SeoAudit> audits)
     {
-        var canonical = doc.QuerySelector("link[rel='canonical']")?.GetAttribute("href");
+        var canonical = headLinks
+            .FirstOrDefault(l => string.Equals(l.Relation, "canonical", StringComparison.OrdinalIgnoreCase))
+            ?.Href;
         var passed = !string.IsNullOrWhiteSpace(canonical);
 
         audits.Add(new SeoAudit
         {
             Title = "Canonical Tag",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = canonical,
-            Weight = 6,
             Recommendation = passed ? null : "The canonical tag is essential to avoid duplicate content."
         });
     }
@@ -76,9 +93,8 @@ internal static class MetadataRules
         audits.Add(new SeoAudit
         {
             Title = "Meta Robots",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = robots,
-            Weight = 3,
             Recommendation = passed ? null : "Consider adding a meta robots tag to instruct search engines."
         });
     }
@@ -91,10 +107,9 @@ internal static class MetadataRules
         audits.Add(new SeoAudit
         {
             Title = "Meta Keywords",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = passed ? keywords : "No meta keywords tag found.",
-            Weight = 1,
-            Recommendation = "Although less relevant today, you can add meta keywords for internal organization."
+            Recommendation = passed ? null : "Although less relevant today, you can add meta keywords for internal organization."
         });
     }
 
@@ -106,9 +121,8 @@ internal static class MetadataRules
         audits.Add(new SeoAudit
         {
             Title = "Viewport Tag",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Failed,
             Value = viewport,
-            Weight = 3,
             Recommendation = passed ? null : "The viewport tag is crucial for mobile responsiveness."
         });
     }
@@ -122,9 +136,8 @@ internal static class MetadataRules
         audits.Add(new SeoAudit
         {
             Title = "Meta Charset",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Failed,
             Value = charset,
-            Weight = 2,
             Recommendation = passed ? null : "Use <meta charset='UTF-8'> to ensure correct character rendering."
         });
     }
@@ -138,33 +151,31 @@ internal static class MetadataRules
         audits.Add(new SeoAudit
         {
             Title = "HTML Lang Attribute",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = lang,
-            Weight = 3,
             Recommendation = passed ? null : "Set the 'lang' attribute on the <html> tag to help search engines and accessibility."
         });
     }
 
-    private static void AuditFavicon(List<IElement> links, List<SeoAudit> audits)
+    private static void AuditFavicon(List<IHtmlLinkElement> headLinks, List<SeoAudit> audits)
     {
-        var favicon = links
-            .FirstOrDefault(link =>
+        var favicon = headLinks
+            .FirstOrDefault(l =>
             {
-                var rel = link.GetAttribute("rel");
+                var rel = l.Relation;
                 if (string.IsNullOrWhiteSpace(rel)) return false;
                 var tokens = rel.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 return tokens.Any(t => string.Equals(t, "icon", StringComparison.OrdinalIgnoreCase));
             })
-            ?.GetAttribute("href");
+            ?.Href;
 
         var passed = !string.IsNullOrWhiteSpace(favicon);
 
         audits.Add(new SeoAudit
         {
             Title = "Favicon",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = favicon,
-            Weight = 1,
             Recommendation = passed ? null : "A favicon helps brand recognition in search results."
         });
     }

@@ -7,72 +7,76 @@ namespace SeoAnalyzer.Rules.SEO;
 /// <summary>Audits for robots.txt, sitemap and noindex (requires base URL).</summary>
 internal static class IndexingRules
 {
-    private record RobotsTxtResult(bool Exists, string? Content, string? Url);
-
-    public static async Task<List<SeoAudit>> ExecuteAsync(IDocument doc)
+    public static async Task<List<SeoAudit>> ExecuteAsync(IDocument doc, string requestUrl)
     {
         var audits = new List<SeoAudit>();
-        var baseUrl = DomHelper.ExtractBaseUrl(doc);
-        var robots = await FetchRobotsTxtAsync(baseUrl);
 
-        AuditRobotsTxt(baseUrl, robots, audits);
-        AuditSitemap(robots, audits);
+        var url = requestUrl.TrimEnd('/') + "/robots.txt";
+
+        var content = await FetchRobotsTxtAsync(url);
+
+        AuditRobotsTxt(url, content, audits);
+        AuditSitemap(content, audits);
         AuditNoIndex(doc, audits);
 
         return audits;
     }
 
-    private static async Task<RobotsTxtResult> FetchRobotsTxtAsync(string? baseUrl)
+    private static async Task<string?> FetchRobotsTxtAsync(string url)
     {
-        if (baseUrl == null) return new(Exists: false, Content: null, Url: null);
-
-        var url = baseUrl.TrimEnd('/') + "/robots.txt";
         try
         {
             var response = await UrlHelper.Http.GetAsync(url);
             if (!response.IsSuccessStatusCode)
-                return new(Exists: false, Content: null, Url: url);
+                return null;
 
-            var content = await response.Content.ReadAsStringAsync();
-            return new(Exists: true, Content: content, Url: url);
+            return await response.Content.ReadAsStringAsync();
         }
         catch
         {
-            return new(Exists: false, Content: null, Url: url);
+            return null;
         }
     }
 
-    private static void AuditRobotsTxt(string? baseUrl, RobotsTxtResult robots, List<SeoAudit> audits)
+    private static void AuditRobotsTxt(string url, string? content, List<SeoAudit> audits)
     {
-        if (baseUrl == null)
+        if (content == null)
         {
             audits.Add(new SeoAudit
             {
                 Title = "Robots.txt Presence",
-                Passed = false,
-                Weight = 3,
-                Recommendation = "Could not determine base URL — add a canonical tag to enable robots.txt check."
+                Status = AuditStatus.Warning,
+                Value = "Not Found",
+                Recommendation = "Ensure robots.txt is accessible at the root of the domain."
             });
             return;
         }
 
+        var blocksAll = content
+            .Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => l.Trim())
+            .Where(l => !l.StartsWith('#'))
+            .Any(l => l.Equals("Disallow: /", StringComparison.OrdinalIgnoreCase));
+
         audits.Add(new SeoAudit
         {
             Title = "Robots.txt Presence",
-            Passed = robots.Exists,
-            Value = robots.Url,
-            Weight = 3,
-            Recommendation = robots.Exists ? null : "Ensure robots.txt is accessible at the root of the domain."
+            Status = blocksAll ? AuditStatus.Failed : AuditStatus.Passed,
+            Value = url,
+            Recommendation = blocksAll
+                                 ? "robots.txt is blocking all crawlers (Disallow: /). Remove or restrict this rule."
+                                 : null
         });
     }
 
-    private static void AuditSitemap(RobotsTxtResult robots, List<SeoAudit> audits)
+    private static void AuditSitemap(string? content, List<SeoAudit> audits)
     {
         string? sitemapUrl = null;
 
-        if (robots.Content != null)
+        if (!string.IsNullOrWhiteSpace(content))
         {
-            foreach (var raw in robots.Content.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            var lines = content.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
+            foreach (var raw in lines)
             {
                 var line = raw.Trim();
                 if (line.StartsWith('#')) continue;
@@ -88,9 +92,8 @@ internal static class IndexingRules
         audits.Add(new SeoAudit
         {
             Title = "Sitemap XML",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = sitemapUrl ?? "No sitemap was declared in robots.txt.",
-            Weight = 3,
             Recommendation = passed ? null : "An XML sitemap helps search engines discover your pages."
         });
     }
@@ -106,9 +109,8 @@ internal static class IndexingRules
         audits.Add(new SeoAudit
         {
             Title = "NoIndex",
-            Passed = !isNoIndex,
+            Status = !isNoIndex ? AuditStatus.Passed : AuditStatus.Failed,
             Value = isNoIndex ? "NoIndex" : "Indexable",
-            Weight = 5,
             Recommendation = isNoIndex ? "The noindex tag is preventing this page from being indexed." : null
         });
     }

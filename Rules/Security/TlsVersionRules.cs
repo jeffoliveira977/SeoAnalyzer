@@ -44,9 +44,8 @@ internal static class TlsVersionRules
             return new SeoAudit
             {
                 Title = "TLS Protocol Version",
-                Passed = passed,
+                Status = passed ? AuditStatus.Passed : AuditStatus.Failed,
                 Value = $"Negotiated {protocol}.",
-                Weight = 5,
                 Recommendation = passed ? null : "Upgrade server configuration to support TLS 1.2 or TLS 1.3 and disable deprecated protocols (TLS 1.0, TLS 1.1, SSL v3, SSL v2).",
                 Category = AuditCategory.Security
             };

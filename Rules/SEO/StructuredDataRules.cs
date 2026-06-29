@@ -32,9 +32,8 @@ internal static class StructuredDataRules
         audits.Add(new SeoAudit
         {
             Title = "JSON-LD Structured Data",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = passed ? count.ToString() : null,
-            Weight = 4,
             Recommendation = passed
                 ? null
                 : "Use JSON-LD to provide structured data and obtain Rich Snippets in Google."
@@ -48,9 +47,8 @@ internal static class StructuredDataRules
         audits.Add(new SeoAudit
         {
             Title = "Microdata (Schema.org)",
-            Passed = hasAnyStructuredData,
+            Status = hasAnyStructuredData ? AuditStatus.Passed : AuditStatus.Warning,
             Value = $"JSON-LD: {jsonLdCount}, Microdata: {count}",
-            Weight = 1,
             Recommendation = "Microdata is an alternative to JSON-LD, but JSON-LD is recommended by Google."
         });
     }

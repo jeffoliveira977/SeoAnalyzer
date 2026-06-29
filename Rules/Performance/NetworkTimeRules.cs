@@ -1,4 +1,5 @@
 using SeoAnalyzer.Models;
+using System.Net.NetworkInformation;
 
 namespace SeoAnalyzer.Rules.Performance;
 
@@ -14,9 +15,8 @@ internal static class NetworkTimeRules
         audits.Add(new SeoAudit
         {
             Title = "DNS Lookup Time",
-            Passed = dnsPassed,
+            Status = dnsPassed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = $"{metrics.DnsLookupMs:F2} ms",
-            Weight = 1,
             Recommendation = dnsPassed ? null : "Optimize DNS resolution times by using a fast DNS provider or CDN.",
             Category = AuditCategory.Performance
         });
@@ -26,22 +26,37 @@ internal static class NetworkTimeRules
         audits.Add(new SeoAudit
         {
             Title = "TCP Connection Time",
-            Passed = tcpPassed,
+            Status = tcpPassed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = $"{metrics.TcpConnectionMs:F2} ms",
-            Weight = 1,
             Recommendation = tcpPassed ? null : "TCP connection time is high. Consider using CDNs or edge locations to reduce network latency.",
             Category = AuditCategory.Performance
         });
 
-        // Server Response Time (TTFB)
-        var ttfbPassed = metrics.TtfbMs < 800;
+        // Server Response Time
+        AuditStatus ttfbStatus;
+        string? ttfbRecommendation = null;
+
+        if (metrics.TtfbMs < 800)
+        {
+            ttfbStatus = AuditStatus.Passed;
+        }
+        else if (metrics.TtfbMs < 1800)
+        {
+            ttfbStatus = AuditStatus.Warning;
+            ttfbRecommendation = "Initial server response time (TTFB) is high. Consider using CDN caching, optimizing database queries, or minifying application code.";
+        }
+        else
+        {
+            ttfbStatus = AuditStatus.Failed;
+            ttfbRecommendation = "CRITICAL: Server response time (TTFB) is extremely poor (over 1.2s). This severely damages UX and Google crawling. Immediate server upgrade, hardware scaling, or aggressive object caching is required.";
+        }
+
         audits.Add(new SeoAudit
         {
             Title = "Server Response Time (TTFB)",
-            Passed = ttfbPassed,
+            Status = ttfbStatus,
             Value = $"{metrics.TtfbMs:F2} ms",
-            Weight = 5,
-            Recommendation = ttfbPassed ? null : "Initial server response time (TTFB) is high. Optimize database queries, use CDN caching, or upgrade server hosting resources.",
+            Recommendation = ttfbRecommendation,
             Category = AuditCategory.Performance
         });
 
@@ -50,9 +65,8 @@ internal static class NetworkTimeRules
         audits.Add(new SeoAudit
         {
             Title = "Content Download Time",
-            Passed = downloadPassed,
+            Status = downloadPassed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = $"{metrics.ContentDownloadMs:F2} ms",
-            Weight = 1,
             Recommendation = downloadPassed ? null : "HTML content download time is high. Minify HTML, compress text payloads (GZip/Brotli), or optimize server bandwidth.",
             Category = AuditCategory.Performance
         });
@@ -62,9 +76,8 @@ internal static class NetworkTimeRules
         audits.Add(new SeoAudit
         {
             Title = "Total Network Time",
-            Passed = totalPassed,
+            Status = totalPassed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = $"{metrics.TotalNetworkTimeMs:F2} ms",
-            Weight = 2,
             Recommendation = totalPassed ? null : "Total network execution time is high. Address latency, connection setup, and server processing times.",
             Category = AuditCategory.Performance
         });

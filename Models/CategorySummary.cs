@@ -1,7 +1,9 @@
+using System.Collections.Generic;
 
 namespace SeoAnalyzer.Models;
 
-public sealed class SeoResult
+/// <summary>Encapsulates the aggregated metrics for a specific audit category.</summary>
+public sealed class CategorySummary
 {
     public int Score { get; set; }
     public int TotalPassed { get; set; }

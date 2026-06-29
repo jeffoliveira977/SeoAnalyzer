@@ -1,108 +1,119 @@
 using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
+using SeoAnalyzer.Helpers;
 using SeoAnalyzer.Models;
+using System;
+using System.Collections.Generic;
 using System.Collections.Frozen;
+using System.Linq;
 
 namespace SeoAnalyzer.Rules.Performance;
 
 /// <summary>Audits for image dimensions, lazy loading and modern formats.</summary>
 internal static class ImagePerformanceRules
 {
-    public static List<SeoAudit> Execute(List<IElement> images)
+    public static List<SeoAudit> Execute(List<IHtmlImageElement> images, string requestUrl)
     {
         var audits = new List<SeoAudit>();
 
-        AuditImageDimensions(images, audits);
-        AuditLazyLoading(images, audits);
-        AuditImageFormats(images, audits);
+        if (images == null || images.Count == 0)
+            return audits;
+
+        if (!Uri.TryCreate(requestUrl, UriKind.Absolute, out var uri))
+            return audits;
+
+        var ownImages = images.Where(img => IsOwnDomain(img, uri.Host)).ToList();
+
+        if (ownImages.Count == 0) return audits;
+
+        AuditImageDimensions(ownImages, audits);
+        AuditLazyLoading(ownImages, audits);
+        AuditImageFormats(ownImages, audits);
 
         return audits;
     }
 
-    private static void AuditImageDimensions(List<IElement> images, List<SeoAudit> audits)
+    private static void AuditImageDimensions(List<IHtmlImageElement> images, List<SeoAudit> audits)
     {
         var missing = images
             .Where(img => string.IsNullOrWhiteSpace(img.GetAttribute("width"))
                        || string.IsNullOrWhiteSpace(img.GetAttribute("height")))
-            .ToList();
+            .ToList(); 
 
         var passed = missing.Count == 0;
 
         audits.Add(new SeoAudit
         {
             Title = "Image Width/Height",
-            Passed = passed,
-            Value = images.Count == 0 ? "No images to analyze." : $"There are {missing.Count} images without width and height",
-            Weight = 2,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
+            Value = passed ? "All images have width and height defined."
+                                    : $"There are {missing.Count} image(s) without width and height",
             Recommendation = passed ? null : "Define width='' and height='' attributes to avoid layout shifts (CLS).",
-            Details = passed ? null : BuildImageItems(missing),
+            Details = passed ? null : DomHelper.FormatAuditDetails(missing),
             Category = AuditCategory.Performance
         });
     }
 
-    private static void AuditLazyLoading(List<IElement> images, List<SeoAudit> audits)
+    private static void AuditLazyLoading(List<IHtmlImageElement> images, List<SeoAudit> audits)
     {
+        var firstImage = images.FirstOrDefault();
+
         var missing = images
             .Where(img => !string.Equals(img.GetAttribute("loading"), "lazy", StringComparison.OrdinalIgnoreCase))
+            .Where(img => !string.Equals(img.GetAttribute("fetchpriority"), "high", StringComparison.OrdinalIgnoreCase))
+            .Where(img => img != firstImage)
+            .Where(img =>
+            {
+                var width = img.GetAttribute("width");
+                var height = img.GetAttribute("height");
+                if (int.TryParse(width, out var w) && w <= 200) return false;
+                if (int.TryParse(height, out var h) && h <= 100) return false;
+                return true;
+            })
             .ToList();
 
-        var passed = images.Count == 0 || missing.Count == 0;
+        var passed = missing.Count == 0;
 
         audits.Add(new SeoAudit
         {
             Title = "Lazy Loading",
-            Passed = passed,
-            Value = images.Count == 0 ? "No images to analyze." : $"There are {missing.Count} images without lazy loading",
-            Weight = 2,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
+            Value = passed ? "Lazy loading is correctly configured."
+                                    : $"There are {missing.Count} image(s) without lazy loading",
             Recommendation = passed ? null : "Use loading='lazy' for below-the-fold images to improve performance.",
-            Details = passed ? null : BuildImageItems(missing),
+            Details = passed ? null : DomHelper.FormatAuditDetails(missing),
             Category = AuditCategory.Performance
         });
     }
 
-    private static readonly FrozenSet<string> _modernExtensions =
-        FrozenSet.ToFrozenSet<string>([".webp", ".avif"]);
-
-    private static bool IsModernFormat(IElement img)
+    private static void AuditImageFormats(List<IHtmlImageElement> images, List<SeoAudit> audits)
     {
-        var src = img.GetAttribute("src");
-        if (string.IsNullOrWhiteSpace(src)) return false;
-        var path = src.Contains('?') ? src[..src.IndexOf('?')] : src;
-        return _modernExtensions.Any(ext => path.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static void AuditImageFormats(List<IElement> images, List<SeoAudit> audits)
-    {
-        var missing = images.Where(img => !IsModernFormat(img)).ToList();
-        var passed = images.Count == 0 || missing.Count == 0;
+        var missing = images.Where(img => !ImageHelper.IsModernFormat(img)).ToList();
+        var passed = missing.Count == 0;
 
         audits.Add(new SeoAudit
         {
             Title = "Modern Image Formats (WebP/AVIF)",
-            Passed = passed,
-            Value = images.Count == 0 ? "No images to analyze." : $"{missing.Count} images are not served in WebP or AVIF.",
-            Weight = 2,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
+            Value = passed ? "All images use modern formats."
+                                    : $"{missing.Count} image(s) are not served in WebP or AVIF.",
             Recommendation = passed ? null : "Serve images in WebP or AVIF whenever possible to reduce download size.",
-            Details = passed ? null : BuildImageItems(missing),
+            Details = passed ? null : DomHelper.FormatAuditDetails(missing),
             Category = AuditCategory.Performance
         });
     }
 
-    private static List<string> BuildImageItems(List<IElement> nodes)
+    private static bool IsOwnDomain(IHtmlImageElement img, string host)
     {
-        const int MaxItems = 10;
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var items = new List<string>();
+        var src = img.GetAttribute("src");
+        if (string.IsNullOrWhiteSpace(src)) return false;
 
-        foreach (var img in nodes)
-        {
-            var src = img.GetAttribute("src");
-            if (string.IsNullOrWhiteSpace(src) || !seen.Add(src)) continue;
+        if (src.StartsWith("//"))
+            return src[2..].StartsWith(host, StringComparison.OrdinalIgnoreCase);
 
-            items.Add(src);
+        if (!src.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            return true;
 
-            if (items.Count >= MaxItems) break;
-        }
-
-        return items;
+        return UrlHelper.IsSameHost(src, host);
     }
 }

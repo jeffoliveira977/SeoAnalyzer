@@ -1,6 +1,10 @@
 using AngleSharp.Dom;
-using System.Text;
+using SeoAnalyzer.Helpers;
 using SeoAnalyzer.Models;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace SeoAnalyzer.Rules.Performance;
 
@@ -47,42 +51,36 @@ internal class DeprecatedHtmlRules
 
         return audits;
     }
+
     private static void AuditDeprecatedHtmlTags(IDocument doc, List<SeoAudit> audits)
     {
         var results = DeprecatedTags
-            .Select(kvp =>
+            .Select(kvp => new
             {
-                var nodes = doc.QuerySelectorAll(kvp.Key);
-
-                return new
-                {
-                    Tag = kvp.Key,
-                    Fix = kvp.Value,
-                    Nodes = nodes
-                };
+                Tag = kvp.Key,
+                Fix = kvp.Value,
+                Nodes = doc.QuerySelectorAll(kvp.Key)
             })
             .Where(x => x.Nodes.Length > 0)
             .ToList();
 
-        var passed = results.Count == 0;
-
-        var affectedItems = results.Select(r => new TagAuditItem
+        var items = results.Select(r => new TagAuditItem
         {
             Tag = r.Tag,
             Fix = r.Fix,
-            Snippets = [.. r.Nodes.Select(n => BuildSnippet(n))]
+            Snippets = [.. DomHelper.FormatAuditDetails(r.Nodes)]
         }).ToList();
+
+        var totalIssues = results.Sum(r => r.Nodes.Length);
+        var passed = totalIssues == 0;
 
         audits.Add(new SeoAudit
         {
             Title = "Deprecated HTML Tags",
-            Passed = passed,
-            Value = passed ? "No deprecated HTML tags found." : string.Join(", ", results.Select(r => $"{r.Tag}({r.Nodes.Length})")),
-            Weight = 2,
-            Recommendation = passed
-                ? null
-                : "Replace deprecated HTML tags with semantic HTML and modern CSS.",
-            Details = affectedItems,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
+            Value = passed ? "No deprecated HTML tags found." : $"{totalIssues} issue(s) found",
+            Recommendation = passed ? null : "Replace deprecated HTML tags with semantic HTML and modern CSS.",
+            Details = passed ? null : items,
             Category = AuditCategory.Performance
         });
     }
@@ -90,61 +88,34 @@ internal class DeprecatedHtmlRules
     private static void AuditDeprecatedHtmlAttributes(IDocument document, List<SeoAudit> audits)
     {
         var results = DeprecatedAttributes
-            .Select(kvp =>
+            .Select(kvp => new
             {
-                var nodes = document.QuerySelectorAll($"[{kvp.Key}]");
-                return new
-                {
-                    Attribute = kvp.Key,
-                    Fix = kvp.Value,
-                    Nodes = nodes
-                };
+                Attribute = kvp.Key,
+                Fix = kvp.Value,
+                Nodes = document.QuerySelectorAll($"[{kvp.Key}]")
             })
             .Where(x => x.Nodes.Length > 0)
             .ToList();
 
-        var totalIssues = results.Sum(r => r.Nodes.Length);
-        var passed = totalIssues == 0;
-
-        var affectedItems = results.Select(r => new AttributeAuditItem
+        var items = results.Select(r => new AttributeAuditItem
         {
             Attribute = r.Attribute,
             Fix = r.Fix,
-            Snippets = [.. r.Nodes.Select(n => BuildSnippet(n))]
+            Snippets = [.. DomHelper.FormatAuditDetails(r.Nodes)]
         }).ToList();
+
+        var totalIssues = results.Sum(r => r.Nodes.Length);
+        var passed = totalIssues == 0;
 
         audits.Add(new SeoAudit
         {
             Title = "Deprecated HTML Attributes",
-            Passed = passed,
-            Value = passed ? "No deprecated HTML attributes found." : $"{totalIssues} issues found",
-            Weight = 2,
-            Recommendation = passed
-                ? null
-                : "Replace deprecated HTML attributes with modern CSS equivalents.",
-            Details = affectedItems,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
+            Value = passed ? "No deprecated HTML attributes found." : $"{totalIssues} issue(s) found",
+            Recommendation = passed ? null : "Replace deprecated HTML attributes with modern CSS equivalents.",
+            Details = passed ? null : items,
             Category = AuditCategory.Performance
         });
     }
 
-    private static string BuildSnippet(IElement element)
-    {
-        var tag = element.TagName.ToLowerInvariant();
-
-        var sb = new StringBuilder();
-
-        sb.Append($"<{tag}");
-
-        foreach (var attr in element.Attributes)
-        {
-            var name = attr.Name;
-            var value = attr.Value;
-
-            sb.Append($" {name}=\"{value}\"");
-        }
-
-        sb.Append($">...</{tag}>");
-
-        return sb.ToString();
-    }
 }

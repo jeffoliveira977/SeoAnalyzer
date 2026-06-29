@@ -11,10 +11,9 @@ internal static partial class TagManagerRules
     [GeneratedRegex(@"GTM-[A-Z0-9]+", RegexOptions.IgnoreCase)]
     private static partial Regex GtmContainerRegex();
 
-    public static List<SeoAudit> Execute(IEnumerable<IElement> allScripts, IDocument doc)
+    public static List<SeoAudit> Execute(IDocument doc, List<IHtmlScriptElement> scripts)
     {
         var audits = new List<SeoAudit>();
-        var scripts = allScripts.OfType<IHtmlScriptElement>().ToList();
 
         AuditGtmScript(scripts, audits);
         AuditGtmNoScript(doc, audits);
@@ -23,7 +22,7 @@ internal static partial class TagManagerRules
         return audits;
     }
 
-    private static void AuditGtmScript(IReadOnlyList<IHtmlScriptElement> scripts, List<SeoAudit> audits)
+    private static void AuditGtmScript(List<IHtmlScriptElement> scripts, List<SeoAudit> audits)
     {
         var hasGtmScript = scripts.Any(script =>
             ContainsGtm(script.Source) ||
@@ -32,9 +31,8 @@ internal static partial class TagManagerRules
         audits.Add(new SeoAudit
         {
             Title = "Google Tag Manager (script)",
-            Passed = hasGtmScript,
+            Status = hasGtmScript ? AuditStatus.Passed : AuditStatus.Warning,
             Value = hasGtmScript ? "GTM script present" : "Google Tag Manager (script) not found.",
-            Weight = 1,
             Recommendation = hasGtmScript
                 ? null
                 : "Add the Google Tag Manager <script> snippet into the <head> according to GTM documentation."
@@ -49,25 +47,23 @@ internal static partial class TagManagerRules
         audits.Add(new SeoAudit
         {
             Title = "Google Tag Manager (noscript)",
-            Passed = hasNoScript,
+            Status = hasNoScript ? AuditStatus.Passed : AuditStatus.Warning,
             Value = hasNoScript ? "GTM <noscript> iframe present" : "GTM <noscript> snippet is missing.",
-            Weight = 1,
             Recommendation = hasNoScript
                 ? null
                 : "Add the GTM <noscript> snippet immediately after the opening <body> tag to support browsers without JavaScript."
         });
     }
 
-    private static void AuditDataLayer(IReadOnlyList<IHtmlScriptElement> scripts, List<SeoAudit> audits)
+    private static void AuditDataLayer(List<IHtmlScriptElement> scripts, List<SeoAudit> audits)
     {
         var hasDataLayer = scripts.Any(script => script.Text.Contains("dataLayer", StringComparison.OrdinalIgnoreCase));
 
         audits.Add(new SeoAudit
         {
             Title = "GTM dataLayer",
-            Passed = hasDataLayer,
+            Status = hasDataLayer ? AuditStatus.Passed : AuditStatus.Warning,
             Value = hasDataLayer ? "dataLayer present" : "No dataLayer detected.",
-            Weight = 1,
             Recommendation = hasDataLayer ? null : "Implement a dataLayer to send events and structured information to GTM."
         });
     }

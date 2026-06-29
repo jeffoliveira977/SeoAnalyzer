@@ -15,9 +15,8 @@ internal static class CspRules
         return new SeoAudit
         {
             Title = "Content Security Policy (CSP)",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = passed ? "Content Security Policy is defined in meta tags." : "No Content Security Policy found in meta tags.",
-            Weight = 3,
             Recommendation = passed ? null : "Define a Content Security Policy (CSP) in your meta tags or server response headers to mitigate XSS (Cross-Site Scripting) vulnerabilities.",
             Category = AuditCategory.Security
         };

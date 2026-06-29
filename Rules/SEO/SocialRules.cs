@@ -31,78 +31,39 @@ internal static class SocialRules
     public static List<SeoAudit> Execute(IDocument doc)
     {
         var audits = new List<SeoAudit>();
-        AuditOpenGraph(doc, audits);
-        AuditTwitterCards(doc, audits);
+
+        AuditSocialMetadata(doc, audits, "Open Graph", OgFields, "Add Open Graph tags (og:title, og:image) to improve social sharing.");
+        AuditSocialMetadata(doc, audits, "Twitter Cards", TwitterFields, "Add Twitter Card meta tags to optimize presentation on Twitter.");
+
         return audits;
     }
 
-    private static void AuditOpenGraph(IDocument doc, List<SeoAudit> audits)
+    private static void AuditSocialMetadata(
+        IDocument doc,
+        List<SeoAudit> audits,
+        string title,
+        string[] fields,
+        string recommendation)
     {
-        var results = OgFields
-            .Select(key =>
+        var results = fields
+            .Select(key => new
             {
-                var value = DomHelper.GetMetaContent(doc, key);
-                return new
-                {
-                    Tag = key,
-                    Value = value,
-                    Present = !string.IsNullOrWhiteSpace(value)
-                };
-            })
-            .ToList();
+               Name = key,
+               Value = DomHelper.GetMetaContent(doc, key)   
+            });
 
-        var passed = results.Any(r => r.Present);
         var details = results
-            .Where(r => r.Present)
-            .Select(r => new MetaTagAuditItem
-            {
-                Tag = r.Tag,
-                Value = r.Value
-            })
-            .ToList();
+            .Where(r => !string.IsNullOrWhiteSpace(r.Value))
+            .Select(r => $"{r.Name}: {r.Value}");
+
+        var passed = details.Any();
 
         audits.Add(new SeoAudit
         {
-            Title = "Open Graph",
-            Passed = passed,
-            Weight = 1,
-            Recommendation = passed ? null : "Add Open Graph tags (og:title, og:image) to improve social sharing.",
-            Details = details
-        });
-    }
-
-    private static void AuditTwitterCards(IDocument doc, List<SeoAudit> audits)
-    {
-        var results = TwitterFields
-            .Select(key =>
-            {
-                var value = DomHelper.GetMetaContent(doc, key);
-                return new
-                {
-                    Tag = key,
-                    Value = value,
-                    Present = !string.IsNullOrWhiteSpace(value)
-                };
-            })
-            .ToList();
-
-        var passed = results.Any(r => r.Present);
-        var details = results
-            .Where(r => r.Present)
-            .Select(r => new MetaTagAuditItem
-            {
-                Tag = r.Tag,
-                Value = r.Value
-            })
-            .ToList();
-
-        audits.Add(new SeoAudit
-        {
-            Title = "Twitter Cards",
-            Passed = passed,
-            Weight = 1,
-            Recommendation = passed ? null : "Add Twitter Card meta tags to optimize presentation on Twitter.",
-            Details = details
+            Title = title,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
+            Recommendation = passed ? null : recommendation,
+            Details = passed ? details : null
         });
     }
 }

@@ -1,4 +1,5 @@
 using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
 using SeoAnalyzer.Helpers;
 using SeoAnalyzer.Models;
 namespace SeoAnalyzer.Rules.Performance;
@@ -6,13 +7,13 @@ namespace SeoAnalyzer.Rules.Performance;
 /// <summary>Audits whether external CSS and JS resources are minified using URL naming and content heuristics.</summary>
 internal static class MinificationRules
 {
-    public static async Task<IEnumerable<SeoAudit>> ExecuteAsync(List<IElement> scripts, List<IElement> links, string? requestUrl)
+    public static async Task<IEnumerable<SeoAudit>> ExecuteAsync(List<IHtmlScriptElement> scripts, List<IHtmlLinkElement> headLinks, string? requestUrl)
     {
-        var stylesheets = links
-            .Where(l => string.Equals(l.GetAttribute("rel"), "stylesheet", StringComparison.OrdinalIgnoreCase));
+        var stylesheets = headLinks
+            .Where(l => string.Equals(l.Relation, "stylesheet", StringComparison.OrdinalIgnoreCase));
 
-        var unminifiedCss = await GetUnminifiedAsync(stylesheets, "href", requestUrl);
-        var unminifiedJs = await GetUnminifiedAsync(scripts, "src", requestUrl);
+        var unminifiedCss = await GetUnminifiedAsync(stylesheets, l => l.Href, requestUrl);
+        var unminifiedJs = await GetUnminifiedAsync(scripts, s => s.Source, requestUrl);
 
         return
         [
@@ -36,10 +37,9 @@ internal static class MinificationRules
         return new SeoAudit
         {
             Title = title,
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = passed ? $"All {type.ToUpperInvariant()} resources are minified."
                            : $"{actionable} {type.ToUpperInvariant()} resource(s) are not minified.",
-            Weight = 2,
             Recommendation = passed ? null : recommendation,
             Details = passed ? null : ownSite.Concat(wordpress).ToList(),
             Category = AuditCategory.Performance
@@ -59,16 +59,14 @@ internal static class MinificationRules
         return string.Join(" ", parts);
     }
 
-    private static async Task<List<string>> GetUnminifiedAsync(
-        IEnumerable<IElement> elements,
-        string urlAttribute,
-        string? requestUrl)
+    private static async Task<List<string>> GetUnminifiedAsync<T>(
+     IEnumerable<T> elements, Func<T, string?> urlSelector, string? requestUrl)
     {
         var unminified = new List<string>();
 
         foreach (var element in elements)
         {
-            var raw = element.GetAttribute(urlAttribute);
+            var raw = urlSelector(element);
             if (string.IsNullOrWhiteSpace(raw)) continue;
 
             var resolved = UrlHelper.ResolveUrl(raw, requestUrl);
@@ -106,7 +104,7 @@ internal static class MinificationRules
             using var stream = await response.Content.ReadAsStreamAsync(cts.Token);
             using var reader = new StreamReader(stream);
 
-            var buffer = new char[2000];
+            var buffer = new char[3000];
             var read = await reader.ReadBlockAsync(buffer, 0, buffer.Length);
             return new string(buffer, 0, read);
         }
@@ -121,6 +119,6 @@ internal static class MinificationRules
         var lines = content.Split('\n');
         var avgLineLength = lines.Length > 0 ? (double)content.Length / lines.Length : content.Length;
 
-        return whitespaceRatio < 0.12 || avgLineLength > 150;
+        return whitespaceRatio < 0.15 || avgLineLength > 150;
     }
 }

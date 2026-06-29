@@ -1,3 +1,4 @@
+using AngleSharp.Dom;
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Net;
@@ -10,9 +11,9 @@ internal static class UrlHelper
     internal static readonly HttpClient Http;
 
     private static readonly FrozenSet<string> _imageExtensions = FrozenSet.ToFrozenSet<string>([
-     ".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif",
+         ".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif",
          ".svg", ".ico", ".bmp", ".tiff", ".tif"
- ], StringComparer.OrdinalIgnoreCase);
+     ], StringComparer.OrdinalIgnoreCase);
 
     static UrlHelper()
     {
@@ -90,6 +91,31 @@ internal static class UrlHelper
         }
     }
 
+    public static string NormalizeUrl(string url)
+    {
+        if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException(
+                $"URL '{url}' is missing a scheme. Please provide the full URL including 'http://' or 'https://'.");
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            throw new ArgumentException($"URL '{url}' is not a valid absolute URL.");
+
+        var path = uri.PathAndQuery == "/" ? string.Empty : uri.PathAndQuery.TrimEnd('/');
+        return $"{uri.Scheme.ToLowerInvariant()}://{uri.Host.ToLowerInvariant()}{path}";
+    }
+
+    public static string? ExtractBaseUrl(IDocument doc)
+    {
+        var url = doc.QuerySelector("link[rel='canonical']")?.GetAttribute("href")
+               ?? doc.QuerySelector("base[href]")?.GetAttribute("href")
+               ?? doc.QuerySelector("meta[property='og:url']")?.GetAttribute("content");
+
+        return !string.IsNullOrWhiteSpace(url)
+            ? new Uri(url).GetLeftPart(UriPartial.Authority)
+            : null;
+    }
+
     public static string ResolveUrl(string href, string? baseUrl)
     {
         if (string.IsNullOrWhiteSpace(baseUrl)) return href;
@@ -121,6 +147,21 @@ internal static class UrlHelper
     public static bool IsHttps(string? url) =>
         Uri.TryCreate(url, UriKind.Absolute, out var uri)
         && string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase);
+
+
+    public static string? ExtractOrigin(string url)
+    {
+        if (url.StartsWith("//"))
+            url = "https:" + url;
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return null;
+
+        if (uri.Scheme is not ("http" or "https"))
+            return null;
+
+        return $"{uri.Scheme}://{uri.Host}";
+    }
 
     public static bool IsImageUrl(string? src)
     {

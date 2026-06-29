@@ -23,9 +23,8 @@ internal static class HeadingRules
         audits.Add(new SeoAudit
         {
             Title = "Single H1 Tag",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = count == 0 ? "No H1 tag found." : count.ToString(),
-            Weight = 4,
             Recommendation = passed
                 ? null
                 : count == 0
@@ -84,9 +83,8 @@ internal static class HeadingRules
         audits.Add(new SeoAudit
         {
             Title = "Heading Hierarchy",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Warning,
             Value = $"H2: {h2}, H3: {h3}",
-            Weight = 2,
             Recommendation = passed
                 ? null
                 : (h2 == 0 && h3 == 0)

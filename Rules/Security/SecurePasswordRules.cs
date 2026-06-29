@@ -10,7 +10,7 @@ internal static class SecurePasswordRules
     {
         var passwordInputs = doc.QuerySelectorAll("input[type='password']");
         if (passwordInputs.Length == 0)
-            return null; // Skip audit if no password fields exist
+            return null;
 
         bool isHttpsPage = false;
         if (!string.IsNullOrWhiteSpace(requestUrl))
@@ -24,7 +24,7 @@ internal static class SecurePasswordRules
         }
         else
         {
-            isHttpsPage = true; // Default to true if only raw HTML is parsed to prevent false alerts
+            isHttpsPage = true;
         }
 
         var insecureFormActions = new List<string>();
@@ -64,9 +64,8 @@ internal static class SecurePasswordRules
         return new SeoAudit
         {
             Title = "Secure Password Forms",
-            Passed = passed,
+            Status = passed ? AuditStatus.Passed : AuditStatus.Failed,
             Value = value,
-            Weight = 5,
             Recommendation = recommendation,
             Details = passed ? null : insecureFormActions.Distinct().ToList(),
             Category = AuditCategory.Security
