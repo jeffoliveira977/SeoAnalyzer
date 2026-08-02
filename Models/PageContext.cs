@@ -5,7 +5,7 @@ namespace SeoAnalyzer.Models;
 /// <summary>
 /// Provides all the data needed to run a full audit.
 /// Fill this from any source (Playwright, Selenium, Puppeteer, manual HTTP, etc.)
-/// and pass it to <see cref="Seo.AnalyzeAsync(PageContext)"/>.
+/// and pass it to <see cref="Seo.AnalyzeAsync(PageContext, bool)"/>.
 /// </summary>
 public sealed record PageContext
 {

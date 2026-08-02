@@ -27,7 +27,8 @@ internal static class NetworkTimerService
             ttfb.Stop();
             metrics.TtfbMs = ttfb.Elapsed.TotalMilliseconds;
 
-            if (response == null || !response.IsSuccessStatusCode) return null;
+            if (response == null || !response.IsSuccessStatusCode)
+                return null;
 
             var html = await ReadContentAsync(response, metrics);
             total.Stop();
