@@ -60,21 +60,30 @@ internal static class MinificationRules
     }
 
     private static async Task<List<string>> GetUnminifiedAsync<T>(
-     IEnumerable<T> elements, Func<T, string?> urlSelector, string? requestUrl)
+    IEnumerable<T> elements, Func<T, string?> urlSelector, string? requestUrl)
     {
-        var unminified = new List<string>();
+        using var gate = new SemaphoreSlim(6, 6);
 
-        foreach (var element in elements)
-        {
-            var raw = urlSelector(element);
-            if (string.IsNullOrWhiteSpace(raw)) continue;
+        var tasks = elements
+            .Select(urlSelector)
+            .Where(raw => !string.IsNullOrWhiteSpace(raw))
+            .Select(async raw =>
+            {
+                await gate.WaitAsync();
+                try
+                {
+                    var resolved = UrlHelper.ResolveUrl(raw!, requestUrl);
+                    var minified = await IsMinifiedAsync(resolved);
+                    return (raw: raw!, minified);
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            });
 
-            var resolved = UrlHelper.ResolveUrl(raw, requestUrl);
-            if (!await IsMinifiedAsync(resolved))
-                unminified.Add(raw);
-        }
-
-        return unminified;
+        var results = await Task.WhenAll(tasks);
+        return [.. results.Where(r => !r.minified).Select(r => r.raw)];
     }
 
     private static async Task<bool> IsMinifiedAsync(string url)
