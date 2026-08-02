@@ -1,9 +1,6 @@
-using AngleSharp.Dom;
-using AngleSharp.Html.Dom;
+using System.Collections.Concurrent;
 using System.Collections.Frozen;
-using System.Globalization;
 using System.Reflection;
-using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -12,44 +9,55 @@ namespace SeoAnalyzer;
 /// <summary>Text normalization and stopwords for keyword analysis.</summary>
 internal static partial class TextHelper
 {
-    private static FrozenSet<string> _stopwords = [];
+    private static readonly FrozenSet<string> _englishBase = LoadStopwordsInternal("en");
 
-    static TextHelper()
-    {
-        LoadStopwords("en");
-    }
+    private static readonly ConcurrentDictionary<string, Lazy<FrozenSet<string>>> _stopwordsCache = new();
 
-    /// <summary>
-    /// Loads stopwords for the given language + English base.
-    /// </summary>
-    public static void LoadStopwords(string lang)
+    public static FrozenSet<string> BuildStopwords(string lang)
     {
         if (string.IsNullOrWhiteSpace(lang)) lang = "en";
         lang = lang.Trim().ToLowerInvariant();
 
+        if (lang == "en")
+            return _englishBase;
+
+        var lazy = _stopwordsCache.GetOrAdd(lang, l => new Lazy<FrozenSet<string>>(
+            () => BuildStopwordsUncached(l),
+            LazyThreadSafetyMode.ExecutionAndPublication));
+
+        return lazy.Value;
+    }
+
+    private static FrozenSet<string> BuildStopwordsUncached(string lang)
+    {
         var json = TryReadEmbedded("stopwords-iso.json");
         if (json == null)
         {
             Console.Error.WriteLine($"[TextHelper] stopwords-iso.json not found.");
-            return;
+            return _englishBase;
         }
 
-        var combined = ParseStopwordsJson(json, "en");
-        if (lang != "en")
-            foreach (var w in ParseStopwordsJson(json, lang))
-                combined.Add(w);
+        var combined = new HashSet<string>(_englishBase, StringComparer.OrdinalIgnoreCase);
+        foreach (var w in ParseStopwordsJson(json, lang))
+            combined.Add(w);
 
-        if (combined.Count == 0)
-        {
-            Console.Error.WriteLine($"[TextHelper] No stopwords found for 'en+{lang}'.");
-            return;
-        }
+        if (combined.Count == _englishBase.Count)
+            Console.Error.WriteLine($"[TextHelper] No stopwords found for '{lang}', using 'en' only.");
 
-        Interlocked.Exchange(ref _stopwords!, combined.ToFrozenSet(StringComparer.OrdinalIgnoreCase));
+        return combined.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
     }
 
-    private static bool IsStopword(string word) =>
-        _stopwords.Contains(word);
+    private static FrozenSet<string> LoadStopwordsInternal(string lang)
+    {
+        var json = TryReadEmbedded("stopwords-iso.json");
+        if (json == null)
+        {
+            Console.Error.WriteLine($"[TextHelper] stopwords-iso.json not found.");
+            return [];
+        }
+
+        return ParseStopwordsJson(json, lang).ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+    }
 
     private static HashSet<string> ParseStopwordsJson(string json, string lang)
     {
@@ -95,7 +103,6 @@ internal static partial class TextHelper
         return null;
     }
 
-
     public static string NormalizeText(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return string.Empty;
@@ -103,9 +110,15 @@ internal static partial class TextHelper
     }
 
     /// <summary>Extracts valid words, filtering numbers, emails and stopwords.</summary>
-    public static string[] ExtractWords(string text, int minimumLength = 4, bool removeStopwords = true)
+    public static string[] ExtractWords(
+        string text,
+        FrozenSet<string>? stopwords = null,
+        int minimumLength = 4,
+        bool removeStopwords = true)
     {
         if (string.IsNullOrWhiteSpace(text)) return [];
+
+        var effectiveStopwords = stopwords ?? _englishBase;
 
         return [.. NormalizeText(text)
             .Split(' ', StringSplitOptions.RemoveEmptyEntries)
@@ -113,17 +126,15 @@ internal static partial class TextHelper
             .Where(w => w.Length >= minimumLength)
             .Where(w => !IsNumberRegex().IsMatch(w))
             .Where(w => !w.Contains('@'))
-            .Where(w => !removeStopwords || !IsStopword(w))];
+            .Where(w => !removeStopwords || !effectiveStopwords.Contains(w))];
     }
 
-    /// <summary>Strips HTML comments and collapses whitespace.</summary>
     public static string CleanHtml(string html)
     {
         if (string.IsNullOrWhiteSpace(html)) return string.Empty;
         return WhiteSpaceRegex().Replace(CommentsHtml().Replace(html, ""), " ").Trim();
     }
 
-    /// <summary>Keeps the first half and last portion of a string, joined by ellipsis.</summary>
     public static string Ellipsize(string value, int limit)
     {
         if (value.Length <= limit) return value;

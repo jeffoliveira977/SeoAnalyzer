@@ -163,7 +163,7 @@ public static class Seo
 
     private static async Task<List<SeoAudit>> RunSeoAuditsAsync(PageElements page, string url, string? cookies = null)
     {
-        TextHelper.LoadStopwords(HtmlLangDetector.Detect(page.Document));
+        var stopwords = TextHelper.BuildStopwords(HtmlLangDetector.Detect(page.Document));
 
         var audits = new List<SeoAudit>();
         audits.AddRange(MetadataRules.Execute(page.Document, page.HeadLinks));
@@ -173,7 +173,7 @@ public static class Seo
         audits.AddRange(StructuredDataRules.Execute(page.Document));
         audits.AddRange(SocialRules.Execute(page.Document));
         audits.AddRange(TagManagerRules.Execute(page.Document, page.Scripts));
-        audits.AddRange(CommonKeywordsRules.Execute(page.Document));
+        audits.AddRange(CommonKeywordsRules.Execute(page.Document, stopwords));
         audits.AddRange(ImageAltRules.Execute(page.Images));
         audits.AddRange(await IndexingRules.ExecuteAsync(page.Document, url));
         audits.AddRange(TechRules.Execute(page.Document, page.Scripts, cookies));

@@ -1,15 +1,16 @@
 using AngleSharp.Dom;
 using SeoAnalyzer.Models;
+using System.Collections.Frozen;
 
 namespace SeoAnalyzer.Rules.SEO;
 
 /// <summary>Extracts and ranks keywords from main page content.</summary>
 public static partial class CommonKeywordsRules
 {
-    public static List<SeoAudit> Execute(IDocument document)
+    public static List<SeoAudit> Execute(IDocument document, FrozenSet<string> stopwords)
     {
         var audits = new List<SeoAudit>();
-        AuditCommonKeywords(document, audits);
+        AuditCommonKeywords(document, audits, stopwords);
         return audits;
     }
 
@@ -28,10 +29,10 @@ public static partial class CommonKeywordsRules
         return ChromeWords.Any(word => id.Contains(word) || cls.Contains(word));
     }
 
-    private static void AuditCommonKeywords(IDocument document, List<SeoAudit> audits)
+    private static void AuditCommonKeywords(IDocument document, List<SeoAudit> audits, FrozenSet<string> stopwords)
     {
         var body = ExtractBodyText(document);
-        var keywords = RankKeywords(body, 10);
+        var keywords = RankKeywords(body, 10, stopwords);
 
         var hasKeywords = keywords.Length > 0;
 
@@ -74,9 +75,9 @@ public static partial class CommonKeywordsRules
         return clone.TextContent;
     }
 
-    private static string[] RankKeywords(string text, int topN)
+    private static string[] RankKeywords(string text, int topN, FrozenSet<string> stopwords)
     {
-        return [..TextHelper.ExtractWords(text)
+        return [..TextHelper.ExtractWords(text, stopwords)
                   .GroupBy(w => w)
                   .OrderByDescending(g => g.Count())
                   .Take(topN)

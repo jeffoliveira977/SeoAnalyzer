@@ -84,16 +84,16 @@ internal static class NetworkTimerService
     private static async ValueTask<Stream> ConnectAsync(
         SocketsHttpConnectionContext context,
         NetworkPerformanceMetrics metrics,
-        CancellationToken cancellationToken)
+        CancellationToken ct)
     {
         var dns = System.Diagnostics.Stopwatch.StartNew();
-        var addresses = await Dns.GetHostAddressesAsync(context.DnsEndPoint.Host, cancellationToken);
+        var addresses = await Dns.GetHostAddressesAsync(context.DnsEndPoint.Host, ct);
         dns.Stop();
         metrics.DnsLookupMs = dns.Elapsed.TotalMilliseconds;
 
         var tcp = System.Diagnostics.Stopwatch.StartNew();
         var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        await socket.ConnectAsync(addresses, context.DnsEndPoint.Port, cancellationToken);
+        await socket.ConnectAsync(addresses, context.DnsEndPoint.Port, ct);
         tcp.Stop();
         metrics.TcpConnectionMs = tcp.Elapsed.TotalMilliseconds;
 
