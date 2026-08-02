@@ -76,7 +76,8 @@ public static class Seo
             Html = result.Html,
             Url = normalized,
             ResponseHeaders = result.ResponseHeaders,
-            Metrics = result.Metrics
+            Metrics = result.Metrics,
+            Cookies = result.Cookies
         });
     }
 
@@ -100,7 +101,7 @@ public static class Seo
 
         var updated = context with { Url = pageUrl };
 
-        var audits = await RunSeoAuditsAsync(page, pageUrl);
+        var audits = await RunSeoAuditsAsync(page, pageUrl, context.Cookies);
         audits.AddRange(await RunPerformanceAuditsAsync(page, updated));
         audits.AddRange(await RunSecurityAuditsAsync(page, updated));
 
@@ -140,7 +141,7 @@ public static class Seo
         );
     }
 
-    private static async Task<List<SeoAudit>> RunSeoAuditsAsync(PageElements page, string url)
+    private static async Task<List<SeoAudit>> RunSeoAuditsAsync(PageElements page, string url, string? cookies = null)
     {
         TextHelper.LoadStopwords(HtmlLangDetector.Detect(page.Document));
 
@@ -155,6 +156,7 @@ public static class Seo
         audits.AddRange(CommonKeywordsRules.Execute(page.Document));
         audits.AddRange(ImageAltRules.Execute(page.Images));
         audits.AddRange(await IndexingRules.ExecuteAsync(page.Document, url));
+        audits.AddRange(TechRules.Execute(page.Document, page.Scripts, cookies));
         return audits;
     }
 

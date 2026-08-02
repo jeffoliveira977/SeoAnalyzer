@@ -20,7 +20,6 @@ The library provides three entry points:
 ```csharp
 using SeoAnalyzer;
 
-
 var result = await Seo.FromHtmlAsync(html, url);
 
 if (result != null)
@@ -49,9 +48,11 @@ if (result != null)
 }
 ```
 
+
 ### 3. Custom Page Context (Playwright, Selenium, etc.)
 
 Use `Seo.AnalyzeAsync(PageContext)` when you already have the page loaded in a browser or from any external source.
+Pass `Cookies` to enable cookie-based platform detection — typically extracted from the browser's cookie store.
 
 #### Playwright Example
 
@@ -80,6 +81,10 @@ var timing = await page.EvaluateAsync<JsonElement>(@"() => {
     };
 }");
 
+// Extract cookies from the browser context for platform detection
+var browserCookies = await page.Context.CookiesAsync();
+var cookieString = string.Join("; ", browserCookies.Select(c => $"{c.Name}={c.Value}"));
+
 // Convert Playwright response headers to HttpResponseHeaders
 var httpResponse = new HttpResponseMessage();
 foreach (var header in response!.Headers)
@@ -97,7 +102,8 @@ var result = await Seo.AnalyzeAsync(new PageContext
         ContentDownloadMs = timing.GetProperty("download").GetDouble(),
         TotalNetworkTimeMs = timing.GetProperty("total").GetDouble()
     },
-    ResponseHeaders = httpResponse.Headers
+    ResponseHeaders = httpResponse.Headers,
+    Cookies = cookieString  // cookies from the browser's cookie store
 });
 
 Console.WriteLine($"Score: {result?.TotalScore}/100");
@@ -116,6 +122,11 @@ await browser.CloseAsync();
 *   **Images:** Missing Alt Text (details return a list of image URLs).
 *   **Social & Structured Data:** Open Graph (Facebook/LinkedIn), Twitter Cards, and JSON-LD/Microdata Structured Data.
 *   **Technical SEO:** Robots.txt, XML Sitemap, and Google Tag Manager (Scripts, Noscripts, dataLayer).
+*   **Technology Detection** *(informational — does not affect the score)*:
+    - **CMS / Site Builder:** WordPress, Wix, Shopify, Squarespace, Webflow, Joomla, Drupal, Umbraco, TYPO3, Blogger, Weebly, Jimdo, GoDaddy Builder, Hostinger, Duda, NuvemShop, LojaIntegrada, Tray, Hotmart, Kiwify, Cartpanda.
+    - **JavaScript Frameworks:** React, Next.js, Vue.js, Nuxt.js, Angular, Svelte, Ember.js, Backbone.js, Alpine.js, HTMX, jQuery, Stimulus, Lit.
+    - **CSS Frameworks / Libraries:** Bootstrap, Tailwind CSS, Bulma, Foundation, Materialize CSS, Semantic UI.
+    - **reCAPTCHA:** Detects Google reCAPTCHA v2, v3, and Enterprise via script URLs and DOM signals.
 
 ### 2. Performance - *`FromUrlAsync`, `AnalyzeAsync`*
 *   **Detailed Network Connection Timings** *(requires `Metrics` in `PageContext`)*:
@@ -148,11 +159,11 @@ await browser.CloseAsync();
 #### `SeoResult`
 | Property | Type | Description |
 | :--- | :--- | :--- |
-| `Score` | `int` | SEO score from 0 to 100 calculated as unweighted average (Passed = 1.0, Warning = 0.5, Failed = 0.0). |
+| `Score` | `int` | SEO score from 0 to 100 calculated as unweighted average (Passed = 1.0, Warning = 0.5, Failed = 0.0). `Info` audits are excluded from the score. |
 | `TotalPassed` | `int` | Count of SEO audits that passed. |
 | `TotalFailed` | `int` | Count of SEO audits that failed. |
 | `TotalWarnings` | `int` | Count of SEO audits with Warning status. |
-| `Audits` | `List<SeoAudit>` | List of SEO audits executed. |
+| `Audits` | `List<SeoAudit>` | List of SEO audits executed (includes `Info` audits). |
 
 #### `AnalysisResult`
 | Property | Type | Description |
@@ -165,17 +176,17 @@ await browser.CloseAsync();
 #### `CategorySummary`
 | Property | Type | Description |
 | :--- | :--- | :--- |
-| `Score` | `int` | Category score from 0 to 100 calculated as unweighted average. |
+| `Score` | `int` | Category score from 0 to 100 calculated as unweighted average. `Info` audits do not count toward this score. |
 | `TotalPassed` | `int` | Count of audits that passed. |
 | `TotalFailed` | `int` | Count of audits that failed. |
 | `TotalWarnings` | `int` | Count of audits with Warning status. |
-| `Audits` | `List<SeoAudit>` | List of audits executed in this category. |
+| `Audits` | `List<SeoAudit>` | List of all audits executed in this category, including `Info` audits. |
 
 #### `SeoAudit`
 | Property | Type | Description |
 | :--- | :--- | :--- |
 | `Title` | `string` | The name of the audit performed. |
-| `Status` | `AuditStatus` | Status of the audit: `Passed`, `Failed`, or `Warning`. |
+| `Status` | `AuditStatus` | Status of the audit: `Passed`, `Failed`, `Warning`, or `Info`. |
 | `Value` | `string?` | The found value or a brief textual summary. |
 | `Recommendation`| `string?` | Actionable fix suggestion (omitted in JSON if null). |
 | `Details` | `object?` | Structured diagnostic data (omitted in JSON if null or empty). |
@@ -188,6 +199,18 @@ await browser.CloseAsync();
 | `Url` | `string` | **Required.** The final URL of the page (after redirects). |
 | `ResponseHeaders` | `HttpResponseHeaders?` | Optional. HTTP response headers for security header audits. |
 | `Metrics` | `NetworkPerformanceMetrics?` | Optional. Network timing metrics for performance audits. |
+| `Cookies` | `string?` | Optional. Raw cookie string (e.g. `"name=value; name2=value2"`). Used as a last-resort signal for CMS / platform detection. When using `FromUrlAsync`, this is populated automatically from `Set-Cookie` response headers. When using `AnalyzeAsync` with a browser tool, pass the cookies extracted from the browser's cookie store. |
+
+---
+
+### `AuditStatus` Values
+
+| Value | Meaning | Affects Score? |
+| :--- | :--- | :---: |
+| `Passed` | Audit check succeeded. | ✅ Yes (1.0 weight) |
+| `Warning` | Check has concerns but is not a hard failure. | ✅ Yes (0.5 weight) |
+| `Failed` | Audit check failed. | ✅ Yes (0.0 weight) |
+| `Info` | Informational result only (e.g., technology detection). | ❌ No |
 
 ---
 
@@ -198,7 +221,9 @@ When an audit fails or requires deeper diagnostics, the `Details` property conta
 *   **`HeadingAuditItem`**: Contains the hierarchy and count of heading tags (`H1` to `H6`).
 *   **`TagAuditItem`**: Lists obsolete or deprecated HTML tags found within the document.
 *   **`AttributeAuditItem`**: Lists deprecated HTML attributes used in the document markup.
-*   **`List<string>`**: A flat list of paths, URIs, or header keys that failed the audit (e.g., image URLs missing alt/dimensions, scripts, unminified resources, or risky external links).
+*   **`List<string>`**: A flat list of paths, URIs, header keys, or detected technology names (e.g., image URLs missing alt/dimensions, scripts, unminified resources, risky external links, or detected frameworks/platforms).
+
+---
 
 ## Requirements
 .NET 9.0 SDK or higher.

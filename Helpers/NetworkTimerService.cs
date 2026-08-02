@@ -18,8 +18,9 @@ internal static class NetworkTimerService
         {
             var metrics = new NetworkPerformanceMetrics();
             var total = System.Diagnostics.Stopwatch.StartNew();
+            var cookieContainer = new CookieContainer();
 
-            using var client = BuildHttpClient(metrics);
+            using var client = BuildHttpClient(metrics, cookieContainer);
 
             var ttfb = System.Diagnostics.Stopwatch.StartNew();
             using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
@@ -33,11 +34,15 @@ internal static class NetworkTimerService
 
             metrics.TotalNetworkTimeMs = total.Elapsed.TotalMilliseconds;
 
+            var finalUrl = response.RequestMessage?.RequestUri?.ToString() ?? url;
+            var cookies = SerializeCookies(cookieContainer, finalUrl);
+
             return new NetworkFetchResult(
                 html,
                 metrics,
                 response.Headers,
-                response.RequestMessage?.RequestUri?.ToString() ?? url);
+                finalUrl,
+                cookies);
         }
         catch
         {
@@ -45,12 +50,14 @@ internal static class NetworkTimerService
         }
     }
 
-    private static HttpClient BuildHttpClient(NetworkPerformanceMetrics metrics)
+    private static HttpClient BuildHttpClient(NetworkPerformanceMetrics metrics, CookieContainer cookieContainer)
     {
         var handler = new SocketsHttpHandler
         {
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
             PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+            UseCookies = true,
+            CookieContainer = cookieContainer,
             ConnectCallback = (ctx, ct) => ConnectAsync(ctx, metrics, ct)
         };
 
@@ -60,6 +67,18 @@ internal static class NetworkTimerService
 
         UrlHelper.AddHeaders(client);
         return client;
+    }
+
+    private static string? SerializeCookies(CookieContainer container, string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return null;
+
+        var cookies = container.GetCookies(uri);
+        if (cookies.Count == 0)
+            return null;
+
+        return string.Join("; ", cookies.Cast<Cookie>().Select(c => $"{c.Name}={c.Value}"));
     }
 
     private static async ValueTask<Stream> ConnectAsync(

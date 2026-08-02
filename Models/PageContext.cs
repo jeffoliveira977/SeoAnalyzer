@@ -20,4 +20,11 @@ public sealed record PageContext
 
     /// <summary>Network performance metrics (for performance audits). Null to skip network timing checks.</summary>
     public NetworkPerformanceMetrics? Metrics { get; init; }
+
+    /// <summary>
+    /// Raw cookie string in HTTP header format (e.g. "name=value; name2=value2").
+    /// Used as a last-resort signal for CMS / platform detection when no HTML or script signals are found.
+    /// Null to skip cookie-based checks.
+    /// </summary>
+    public string? Cookies { get; init; }
 }

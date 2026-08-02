@@ -13,14 +13,16 @@ internal static class ScoreCalculator
         var categoryAudits = audits.Where(a => a.Category == category).ToList();
         if (categoryAudits.Count == 0) return null;
 
-        int totalPassed = categoryAudits.Count(a => a.Status == AuditStatus.Passed);
-        int totalFailed = categoryAudits.Count(a => a.Status == AuditStatus.Failed);
-        int totalWarnings = categoryAudits.Count(a => a.Status == AuditStatus.Warning);
+        // Info audits are informational only — exclude them from the score denominator.
+        var scorableAudits = categoryAudits.Where(a => a.Status != AuditStatus.Info).ToList();
 
-        double achieved = (totalPassed * 1.0)
-                        + (totalWarnings * 0.5);
+        int totalPassed   = scorableAudits.Count(a => a.Status == AuditStatus.Passed);
+        int totalFailed   = scorableAudits.Count(a => a.Status == AuditStatus.Failed);
+        int totalWarnings = scorableAudits.Count(a => a.Status == AuditStatus.Warning);
 
-        int score = (int)Math.Round((achieved / categoryAudits.Count) * 100);
+        int score = scorableAudits.Count == 0
+            ? 100
+            : (int)Math.Round(((totalPassed * 1.0) + (totalWarnings * 0.5)) / scorableAudits.Count * 100);
 
         return new CategorySummary
         {
@@ -28,7 +30,7 @@ internal static class ScoreCalculator
             TotalPassed = totalPassed,
             TotalFailed = totalFailed,
             TotalWarnings = totalWarnings,
-            Audits = categoryAudits
+            Audits = categoryAudits   // return all audits (including Info) for display
         };
     }
 }
