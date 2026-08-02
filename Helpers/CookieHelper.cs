@@ -5,10 +5,6 @@ namespace SeoAnalyzer.Helpers;
 /// </summary>
 internal static class CookieHelper
 {
-    /// <summary>
-    /// Parses a raw cookie string into a dictionary of name → value pairs.
-    /// Cookie names are compared case-insensitively.
-    /// </summary>
     public static IReadOnlyDictionary<string, string> Parse(string? cookieString)
     {
         if (string.IsNullOrWhiteSpace(cookieString))
@@ -31,11 +27,6 @@ internal static class CookieHelper
         return result;
     }
 
-    /// <summary>
-    /// Returns <see langword="true"/> if any cookie name exactly matches or starts with
-    /// any of the given <paramref name="signals"/> (case-insensitive).
-    /// This supports prefix-based matching for cookies like <c>wordpress_logged_in_abc123</c>.
-    /// </summary>
     public static bool HasCookieSignal(IReadOnlyDictionary<string, string> cookies, string[] signals)
     {
         if (cookies.Count == 0 || signals.Length == 0)
