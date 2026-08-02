@@ -10,10 +10,5 @@ public sealed class NetworkFetchResult(string html, NetworkPerformanceMetrics me
     public HttpResponseHeaders ResponseHeaders { get; } = responseHeaders;
     public string FinalUrl { get; } = finalUrl;
 
-    /// <summary>
-    /// Cookies received from the server via <c>Set-Cookie</c> headers,
-    /// serialized as a raw cookie string (e.g. "name=value; name2=value2").
-    /// Null if the server set no cookies.
-    /// </summary>
     public string? Cookies { get; } = cookies;
 }

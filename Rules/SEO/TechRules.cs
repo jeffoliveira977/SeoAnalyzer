@@ -223,7 +223,7 @@ internal static class TechRules
                 Status = AuditStatus.Info,
                 Value = platforms.Count > 0
                     ? string.Join(", ", platforms)
-                    : "No known CMS or site builder detected."
+                    : null
             },
             new()
             {
@@ -231,7 +231,7 @@ internal static class TechRules
                 Status = AuditStatus.Info,
                 Value = js.Count > 0
                     ? string.Join(", ", js)
-                    : "No known JS framework detected."
+                    : null
             },
             new()
             {
@@ -239,7 +239,7 @@ internal static class TechRules
                 Status = AuditStatus.Info,
                 Value = css.Count > 0
                     ? string.Join(", ", css)
-                    : "No known CSS framework detected."
+                    : null
             },
             new()
             {
@@ -291,7 +291,7 @@ internal static class TechRules
                 PlatformCookieSignals.TryGetValue(name, out var cookieSignals) &&
                 CookieHelper.HasCookieSignal(cookies, cookieSignals))
             {
-                detected.Add($"{name} (via cookies)");
+                detected.Add(name);
             }
         }
 
