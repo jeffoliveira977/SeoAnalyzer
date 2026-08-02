@@ -14,7 +14,7 @@ The library provides four entry points:
 1. **`Seo.FromHtmlAsync(html, url)`**: Audits **SEO** metrics on raw HTML, returning a `SeoResult` (includes `Tech`).
 2. **`Seo.FromUrlAsync(url)`**: Fetches a live URL and audits **SEO**, **Performance**, and **Security**, returning an `AnalysisResult` (includes `Tech`). Cookies set by the server are captured automatically.
 3. **`Seo.AnalyzeAsync(pageContext)`**: Runs a full audit from a pre-built `PageContext`, returning an `AnalysisResult` (includes `Tech`). Integrates with Playwright, Selenium, Puppeteer, etc.
-4. **`Seo.DetectTechAsync(html, cookies?)`**: Detects the technology stack only — no SEO/Performance/Security audits — returning a `TechResult` directly.
+4. **`Seo.DetectTechAsync(html, cookies?)`**: Detects the technology stack only - no SEO/Performance/Security audits - returning a `TechResult` directly.
 
 ### 1. SEO Analysis from HTML String
 
@@ -72,7 +72,7 @@ Console.WriteLine($"reCAPTCHA : {tech.HasRecaptcha}");
 ### 4. Custom Page Context (Playwright, Selenium, etc.)
 
 Use `Seo.AnalyzeAsync(PageContext)` when you already have the page loaded in a browser or from any external source.
-Pass `Cookies` to enable cookie-based platform detection — typically extracted from the browser's cookie store.
+Pass `Cookies` to enable cookie-based platform detection - typically extracted from the browser's cookie store.
 
 #### Playwright Example
 
@@ -150,8 +150,6 @@ Available as a dedicated `TechResult` object on every result and via `Seo.Detect
 *   **JavaScript Frameworks:** React, Next.js, Vue.js, Nuxt.js, Angular, Svelte, Ember.js, Backbone.js, Alpine.js, HTMX, jQuery, Stimulus, Lit.
 *   **CSS Frameworks / Libraries:** Bootstrap, Tailwind CSS, Bulma, Foundation, Materialize CSS, Semantic UI.
 *   **reCAPTCHA:** Detects Google reCAPTCHA v2, v3, and Enterprise via script URLs and DOM signals.
-
-> Detection uses three tiers: **HTML/script strong signals → HTML/script weak signals → cookie name fallback**. Platforms detected only via cookies are labeled `"PlatformName (via cookies)"`.
 
 ### 2. Performance - *`FromUrlAsync`, `AnalyzeAsync`*
 *   **Detailed Network Connection Timings** *(requires `Metrics` in `PageContext`)*:

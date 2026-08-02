@@ -7,15 +7,9 @@ namespace SeoAnalyzer.Rules.SEO;
 
 /// <summary>
 /// Detects the CMS / site-builder platform, JS/CSS frameworks, and reCAPTCHA
-/// used by the page and exposes them as informational SEO audits.
 /// </summary>
 internal static class TechRules
 {
-    // -------------------------------------------------------------------------
-    // Platform / CMS rules
-    // Each entry: Strong signals (any match → detected) + Weak signals (for
-    // confirmation when no strong match is found).
-    // -------------------------------------------------------------------------
     private static readonly Dictionary<string, (string[] Strong, string[] Weak)> PlatformRules = new()
     {
         ["WordPress"] = (
@@ -103,12 +97,6 @@ internal static class TechRules
             []),
     };
 
-    // -------------------------------------------------------------------------
-    // Cookie-based platform detection (last-resort fallback only)
-    // Only applied when no HTML/script signal was found for that platform.
-    // Uses prefix matching so e.g. "wordpress_logged_in_" also matches
-    // "wordpress_logged_in_abc123hash".
-    // -------------------------------------------------------------------------
     private static readonly Dictionary<string, string[]> PlatformCookieSignals = new()
     {
         ["WordPress"]   = ["wordpress_logged_in_", "wordpress_sec_", "wp-settings-", "wp_lang"],
@@ -123,10 +111,6 @@ internal static class TechRules
         ["OpenCart"]    = ["OCSESSID"],
     };
 
-    // -------------------------------------------------------------------------
-    // JS framework / CSS library rules
-    // Signals are matched against script src attributes and inline script text.
-    // -------------------------------------------------------------------------
     private static readonly Dictionary<string, (string[] Strong, string[] Weak)> FrameworkRules = new()
     {
         ["React"] = (
@@ -207,9 +191,6 @@ internal static class TechRules
             ["LitElement", "customElement"]),
     };
 
-    // -------------------------------------------------------------------------
-    // reCAPTCHA signals
-    // -------------------------------------------------------------------------
     private static readonly string[] RecaptchaStrong =
     [
         "google.com/recaptcha",
@@ -225,21 +206,6 @@ internal static class TechRules
         "data-sitekey=",
     ];
 
-    // -------------------------------------------------------------------------
-    // Public entry points
-    // -------------------------------------------------------------------------
-
-    /// <summary>
-    /// Runs all technology-detection checks and returns one audit per group:
-    /// detected platform, detected frameworks, and reCAPTCHA presence.
-    /// </summary>
-    /// <param name="doc">Parsed HTML document.</param>
-    /// <param name="scripts">Script elements from the page.</param>
-    /// <param name="cookies">
-    /// Optional raw cookie string (format: "name=value; name2=value2").
-    /// Cookie names are used as a last-resort signal when no HTML or script
-    /// signals are found for a given platform.
-    /// </param>
     public static List<SeoAudit> Execute(IDocument doc, List<IHtmlScriptElement> scripts, string? cookies = null)
     {
         var rawHtml = doc.DocumentElement?.OuterHtml ?? string.Empty;
@@ -289,18 +255,6 @@ internal static class TechRules
         return audits;
     }
 
-    /// <summary>
-    /// Detects the technology stack of the page and returns a strongly-typed
-    /// <see cref="TechResult"/> without producing any <see cref="SeoAudit"/> entries.
-    /// Use this when you only need the tech stack without running a full audit.
-    /// </summary>
-    /// <param name="doc">Parsed HTML document.</param>
-    /// <param name="scripts">Script elements from the page.</param>
-    /// <param name="cookies">
-    /// Optional raw cookie string (format: "name=value; name2=value2").
-    /// Cookie names are used as a last-resort signal when no HTML or script
-    /// signals are found for a given platform.
-    /// </param>
     public static TechResult Detect(IDocument doc, List<IHtmlScriptElement> scripts, string? cookies = null)
     {
         var rawHtml = doc.DocumentElement?.OuterHtml ?? string.Empty;
@@ -318,10 +272,6 @@ internal static class TechRules
             HasRecaptcha = recaptcha
         };
     }
-
-    // -------------------------------------------------------------------------
-    // Core detection helpers (shared by Execute and Detect)
-    // -------------------------------------------------------------------------
 
     private static List<string> DetectPlatforms(string rawHtml, string? cookieString = null)
     {
@@ -376,13 +326,6 @@ internal static class TechRules
     private static bool DetectRecaptcha(string corpus) =>
         HasSignal(corpus, RecaptchaStrong) || HasSignal(corpus, RecaptchaWeak);
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
-
-    /// <summary>
-    /// Builds a single searchable corpus from the raw HTML plus script src/body text.
-    /// </summary>
     private static string BuildCorpus(string rawHtml, List<IHtmlScriptElement> scripts)
     {
         var parts = new List<string>(scripts.Count * 2 + 1) { rawHtml };
@@ -399,10 +342,6 @@ internal static class TechRules
         return string.Concat(parts);
     }
 
-    /// <summary>
-    /// Returns <see langword="true"/> if any signal string appears in the corpus
-    /// (case-insensitive).
-    /// </summary>
     private static bool HasSignal(string corpus, string[] signals) =>
         signals.Any(sig => corpus.Contains(sig, StringComparison.OrdinalIgnoreCase));
 }
