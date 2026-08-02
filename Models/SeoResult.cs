@@ -9,4 +9,7 @@ public sealed class SeoResult
     public int TotalWarnings { get; set; }
 
     public List<SeoAudit> Audits { get; set; } = [];
+
+    /// <summary>Detected technology stack (CMS, frameworks, reCAPTCHA).</summary>
+    public TechResult? Tech { get; set; }
 }

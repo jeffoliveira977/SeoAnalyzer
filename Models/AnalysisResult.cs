@@ -14,4 +14,7 @@ public sealed class AnalysisResult
 
     /// <summary>Overall weighted score from 0 to 100.</summary>
     public int TotalScore { get; set; }
+
+    /// <summary>Detected technology stack (CMS, frameworks, reCAPTCHA).</summary>
+    public TechResult? Tech { get; set; }
 }

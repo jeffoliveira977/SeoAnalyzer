@@ -226,7 +226,7 @@ internal static class TechRules
     ];
 
     // -------------------------------------------------------------------------
-    // Public entry point
+    // Public entry points
     // -------------------------------------------------------------------------
 
     /// <summary>
@@ -243,21 +243,87 @@ internal static class TechRules
     public static List<SeoAudit> Execute(IDocument doc, List<IHtmlScriptElement> scripts, string? cookies = null)
     {
         var rawHtml = doc.DocumentElement?.OuterHtml ?? string.Empty;
+        var corpus = BuildCorpus(rawHtml, scripts);
 
-        var audits = new List<SeoAudit>();
+        var platforms = DetectPlatforms(rawHtml, cookies);
+        var (js, css) = DetectFrameworks(corpus);
+        var recaptcha = DetectRecaptcha(corpus);
 
-        audits.Add(AuditPlatform(rawHtml, cookies));
-        audits.AddRange(AuditFrameworks(rawHtml, scripts));
-        audits.Add(AuditRecaptcha(rawHtml, scripts));
+        var audits = new List<SeoAudit>
+        {
+            new()
+            {
+                Title = "CMS / Site Builder",
+                Status = AuditStatus.Info,
+                Value = platforms.Count > 0
+                    ? string.Join(", ", platforms)
+                    : "No known CMS or site builder detected."
+            },
+            new()
+            {
+                Title = "JavaScript Frameworks",
+                Status = AuditStatus.Info,
+                Value = js.Count > 0
+                    ? string.Join(", ", js)
+                    : "No known JS framework detected."
+            },
+            new()
+            {
+                Title = "CSS Frameworks / Libraries",
+                Status = AuditStatus.Info,
+                Value = css.Count > 0
+                    ? string.Join(", ", css)
+                    : "No known CSS framework detected."
+            },
+            new()
+            {
+                Title = "reCAPTCHA",
+                Status = AuditStatus.Info,
+                Value = recaptcha ? "reCAPTCHA detected." : "reCAPTCHA not detected.",
+                Recommendation = recaptcha
+                    ? null
+                    : "If your site has forms or login pages, consider adding reCAPTCHA to protect against bots and spam."
+            }
+        };
 
         return audits;
     }
 
+    /// <summary>
+    /// Detects the technology stack of the page and returns a strongly-typed
+    /// <see cref="TechResult"/> without producing any <see cref="SeoAudit"/> entries.
+    /// Use this when you only need the tech stack without running a full audit.
+    /// </summary>
+    /// <param name="doc">Parsed HTML document.</param>
+    /// <param name="scripts">Script elements from the page.</param>
+    /// <param name="cookies">
+    /// Optional raw cookie string (format: "name=value; name2=value2").
+    /// Cookie names are used as a last-resort signal when no HTML or script
+    /// signals are found for a given platform.
+    /// </param>
+    public static TechResult Detect(IDocument doc, List<IHtmlScriptElement> scripts, string? cookies = null)
+    {
+        var rawHtml = doc.DocumentElement?.OuterHtml ?? string.Empty;
+        var corpus = BuildCorpus(rawHtml, scripts);
+
+        var platforms = DetectPlatforms(rawHtml, cookies);
+        var (js, css) = DetectFrameworks(corpus);
+        var recaptcha = DetectRecaptcha(corpus);
+
+        return new TechResult
+        {
+            Platforms = platforms,
+            JsFrameworks = js,
+            CssFrameworks = css,
+            HasRecaptcha = recaptcha
+        };
+    }
+
     // -------------------------------------------------------------------------
-    // Platform detection
+    // Core detection helpers (shared by Execute and Detect)
     // -------------------------------------------------------------------------
 
-    private static SeoAudit AuditPlatform(string rawHtml, string? cookieString = null)
+    private static List<string> DetectPlatforms(string rawHtml, string? cookieString = null)
     {
         var detected = new List<string>();
         var cookies = CookieHelper.Parse(cookieString);
@@ -279,31 +345,14 @@ internal static class TechRules
             }
         }
 
-        var found = detected.Count > 0;
-
-        return new SeoAudit
-        {
-            Title = "CMS / Site Builder",
-            Status = AuditStatus.Info,
-            Value = found
-                ? string.Join(", ", detected)
-                : "No known CMS or site builder detected.",
-        };
+        return detected;
     }
 
-    // -------------------------------------------------------------------------
-    // Framework detection
-    // -------------------------------------------------------------------------
-
-    private static IEnumerable<SeoAudit> AuditFrameworks(string rawHtml, List<IHtmlScriptElement> scripts)
+    private static (List<string> Js, List<string> Css) DetectFrameworks(string corpus)
     {
-        // Build a combined corpus: raw HTML + all script src attributes + script bodies
-        var corpus = BuildCorpus(rawHtml, scripts);
+        var js = new List<string>();
+        var css = new List<string>();
 
-        var detectedJsFrameworks = new List<string>();
-        var detectedCssLibraries = new List<string>();
-
-        // CSS-centric frameworks
         var cssFrameworks = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "Bootstrap", "Tailwind CSS", "Bulma", "Foundation",
@@ -316,50 +365,16 @@ internal static class TechRules
                 continue;
 
             if (cssFrameworks.Contains(name))
-                detectedCssLibraries.Add(name);
+                css.Add(name);
             else
-                detectedJsFrameworks.Add(name);
+                js.Add(name);
         }
 
-        yield return new SeoAudit
-        {
-            Title = "JavaScript Frameworks",
-            Status = AuditStatus.Info,
-            Value = detectedJsFrameworks.Count > 0
-                ? string.Join(", ", detectedJsFrameworks)
-                : "No known JS framework detected."
-        };
-
-        yield return new SeoAudit
-        {
-            Title = "CSS Frameworks / Libraries",
-            Status = AuditStatus.Info,
-            Value = detectedCssLibraries.Count > 0
-                ? string.Join(", ", detectedCssLibraries)
-                : "No known CSS framework detected."
-        };
+        return (js, css);
     }
 
-    // -------------------------------------------------------------------------
-    // reCAPTCHA detection
-    // -------------------------------------------------------------------------
-
-    private static SeoAudit AuditRecaptcha(string rawHtml, List<IHtmlScriptElement> scripts)
-    {
-        var corpus = BuildCorpus(rawHtml, scripts);
-
-        var found = HasSignal(corpus, RecaptchaStrong) || HasSignal(corpus, RecaptchaWeak);
-
-        return new SeoAudit
-        {
-            Title = "reCAPTCHA",
-            Status = AuditStatus.Info,
-            Value = found ? "reCAPTCHA detected." : "reCAPTCHA not detected.",
-            Recommendation = found
-                ? null
-                : "If your site has forms or login pages, consider adding reCAPTCHA to protect against bots and spam.",
-        };
-    }
+    private static bool DetectRecaptcha(string corpus) =>
+        HasSignal(corpus, RecaptchaStrong) || HasSignal(corpus, RecaptchaWeak);
 
     // -------------------------------------------------------------------------
     // Helpers

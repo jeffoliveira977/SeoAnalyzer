@@ -49,8 +49,27 @@ public static class Seo
             TotalFailed = summary.TotalFailed,
             TotalWarnings = summary.TotalWarnings,
             Score = summary.Score,
-            Audits = audits
+            Audits = audits,
+            Tech = TechRules.Detect(page.Document, page.Scripts)
         };
+    }
+
+    /// <summary>
+    /// Detects the technology stack (CMS, JS/CSS frameworks, reCAPTCHA) from a raw HTML string
+    /// without running any SEO, Performance, or Security audits.
+    /// </summary>
+    /// <param name="html">The raw HTML content of the page.</param>
+    /// <param name="cookies">
+    /// Optional raw cookie string (format: "name=value; name2=value2").
+    /// Used as a last-resort signal for CMS / platform detection.
+    /// </param>
+    public static async Task<TechResult> DetectTechAsync(string html, string? cookies = null)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            throw new ArgumentException("HTML cannot be empty.", nameof(html));
+
+        var page = await ParseDocumentAsync(html);
+        return TechRules.Detect(page.Document, page.Scripts, cookies);
     }
 
     /// <summary>
@@ -125,7 +144,8 @@ public static class Seo
             Seo = seo,
             Performance = performance,
             Security = security,
-            TotalScore = (int)Math.Round(scores.Average())
+            TotalScore = (int)Math.Round(scores.Average()),
+            Tech = TechRules.Detect(page.Document, page.Scripts, context.Cookies)
         };
     }
 

@@ -10,10 +10,11 @@ dotnet add package SeoAnalyzer
 
 ## Usage
 
-The library provides three entry points:
-1. **`Seo.FromHtmlAsync(html, url)`**: Audits **SEO** specific metrics on raw HTML and URL, returning a `SeoResult`.
-2. **`Seo.FromUrlAsync(url)`**: Fetches a live URL and audits **SEO**, **Performance**, and **Security**, returning an `AnalysisResult`.
-3. **`Seo.AnalyzeAsync(pageContext)`**: Runs a full audit from a pre-built `PageContext`, allowing integration with any browser automation tool (Playwright, Selenium, Puppeteer, etc.).
+The library provides four entry points:
+1. **`Seo.FromHtmlAsync(html, url)`**: Audits **SEO** metrics on raw HTML, returning a `SeoResult` (includes `Tech`).
+2. **`Seo.FromUrlAsync(url)`**: Fetches a live URL and audits **SEO**, **Performance**, and **Security**, returning an `AnalysisResult` (includes `Tech`). Cookies set by the server are captured automatically.
+3. **`Seo.AnalyzeAsync(pageContext)`**: Runs a full audit from a pre-built `PageContext`, returning an `AnalysisResult` (includes `Tech`). Integrates with Playwright, Selenium, Puppeteer, etc.
+4. **`Seo.DetectTechAsync(html, cookies?)`**: Detects the technology stack only — no SEO/Performance/Security audits — returning a `TechResult` directly.
 
 ### 1. SEO Analysis from HTML String
 
@@ -45,11 +46,30 @@ if (result != null)
     Console.WriteLine($"SEO: {result.Seo?.Score}/100 ({result.Seo?.TotalPassed} passed, {result.Seo?.TotalFailed} failed, {result.Seo?.TotalWarnings} warnings)");
     Console.WriteLine($"Performance: {result.Performance?.Score}/100");
     Console.WriteLine($"Security: {result.Security?.Score}/100");
+
+    // Tech stack is always available directly
+    Console.WriteLine($"CMS: {string.Join(", ", result.Tech?.Platforms ?? [])}");
+    Console.WriteLine($"JS: {string.Join(", ", result.Tech?.JsFrameworks ?? [])}");
 }
 ```
 
+### 3. Technology Detection Only
 
-### 3. Custom Page Context (Playwright, Selenium, etc.)
+Use `Seo.DetectTechAsync` when you only need the technology stack without running a full audit.
+
+```csharp
+using SeoAnalyzer;
+
+var tech = await Seo.DetectTechAsync(html);
+
+Console.WriteLine($"Platforms : {string.Join(", ", tech.Platforms)}");
+Console.WriteLine($"JS        : {string.Join(", ", tech.JsFrameworks)}");
+Console.WriteLine($"CSS       : {string.Join(", ", tech.CssFrameworks)}");
+Console.WriteLine($"reCAPTCHA : {tech.HasRecaptcha}");
+```
+
+
+### 4. Custom Page Context (Playwright, Selenium, etc.)
 
 Use `Seo.AnalyzeAsync(PageContext)` when you already have the page loaded in a browser or from any external source.
 Pass `Cookies` to enable cookie-based platform detection — typically extracted from the browser's cookie store.
@@ -122,11 +142,16 @@ await browser.CloseAsync();
 *   **Images:** Missing Alt Text (details return a list of image URLs).
 *   **Social & Structured Data:** Open Graph (Facebook/LinkedIn), Twitter Cards, and JSON-LD/Microdata Structured Data.
 *   **Technical SEO:** Robots.txt, XML Sitemap, and Google Tag Manager (Scripts, Noscripts, dataLayer).
-*   **Technology Detection** *(informational — does not affect the score)*:
-    - **CMS / Site Builder:** WordPress, Wix, Shopify, Squarespace, Webflow, Joomla, Drupal, Umbraco, TYPO3, Blogger, Weebly, Jimdo, GoDaddy Builder, Hostinger, Duda, NuvemShop, LojaIntegrada, Tray, Hotmart, Kiwify, Cartpanda.
-    - **JavaScript Frameworks:** React, Next.js, Vue.js, Nuxt.js, Angular, Svelte, Ember.js, Backbone.js, Alpine.js, HTMX, jQuery, Stimulus, Lit.
-    - **CSS Frameworks / Libraries:** Bootstrap, Tailwind CSS, Bulma, Foundation, Materialize CSS, Semantic UI.
-    - **reCAPTCHA:** Detects Google reCAPTCHA v2, v3, and Enterprise via script URLs and DOM signals.
+
+### 2. Technology Detection - *all entry points, also standalone via `DetectTechAsync`*
+
+Available as a dedicated `TechResult` object on every result and via `Seo.DetectTechAsync`.
+*   **CMS / Site Builder:** WordPress, Wix, Shopify, Squarespace, Webflow, Joomla, Drupal, Umbraco, TYPO3, Blogger, Weebly, Jimdo, GoDaddy Builder, Hostinger, Duda, NuvemShop, LojaIntegrada, Tray, Hotmart, Kiwify, Cartpanda.
+*   **JavaScript Frameworks:** React, Next.js, Vue.js, Nuxt.js, Angular, Svelte, Ember.js, Backbone.js, Alpine.js, HTMX, jQuery, Stimulus, Lit.
+*   **CSS Frameworks / Libraries:** Bootstrap, Tailwind CSS, Bulma, Foundation, Materialize CSS, Semantic UI.
+*   **reCAPTCHA:** Detects Google reCAPTCHA v2, v3, and Enterprise via script URLs and DOM signals.
+
+> Detection uses three tiers: **HTML/script strong signals → HTML/script weak signals → cookie name fallback**. Platforms detected only via cookies are labeled `"PlatformName (via cookies)"`.
 
 ### 2. Performance - *`FromUrlAsync`, `AnalyzeAsync`*
 *   **Detailed Network Connection Timings** *(requires `Metrics` in `PageContext`)*:
@@ -164,6 +189,7 @@ await browser.CloseAsync();
 | `TotalFailed` | `int` | Count of SEO audits that failed. |
 | `TotalWarnings` | `int` | Count of SEO audits with Warning status. |
 | `Audits` | `List<SeoAudit>` | List of SEO audits executed (includes `Info` audits). |
+| `Tech` | `TechResult?` | Detected technology stack. |
 
 #### `AnalysisResult`
 | Property | Type | Description |
@@ -172,6 +198,7 @@ await browser.CloseAsync();
 | `Seo` | `CategorySummary?` | Detailed metrics for SEO category. |
 | `Performance` | `CategorySummary?` | Detailed metrics for Performance category. |
 | `Security` | `CategorySummary?` | Detailed metrics for Security category. |
+| `Tech` | `TechResult?` | Detected technology stack. |
 
 #### `CategorySummary`
 | Property | Type | Description |
@@ -222,6 +249,14 @@ When an audit fails or requires deeper diagnostics, the `Details` property conta
 *   **`TagAuditItem`**: Lists obsolete or deprecated HTML tags found within the document.
 *   **`AttributeAuditItem`**: Lists deprecated HTML attributes used in the document markup.
 *   **`List<string>`**: A flat list of paths, URIs, header keys, or detected technology names (e.g., image URLs missing alt/dimensions, scripts, unminified resources, risky external links, or detected frameworks/platforms).
+
+#### `TechResult`
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `Platforms` | `List<string>` | Detected CMS or site builder names. Platforms detected only via cookies are suffixed with `(via cookies)`. Empty if none detected. |
+| `JsFrameworks` | `List<string>` | Detected JavaScript framework names. Empty if none detected. |
+| `CssFrameworks` | `List<string>` | Detected CSS framework / library names. Empty if none detected. |
+| `HasRecaptcha` | `bool` | `true` if any Google reCAPTCHA signal was found. |
 
 ---
 
