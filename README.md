@@ -232,10 +232,10 @@ Available as a dedicated `TechResult` object on every result and via `Seo.Detect
 
 | Value | Meaning | Affects Score? |
 | :--- | :--- | :---: |
-| `Passed` | Audit check succeeded. | ✅ Yes (1.0 weight) |
-| `Warning` | Check has concerns but is not a hard failure. | ✅ Yes (0.5 weight) |
-| `Failed` | Audit check failed. | ✅ Yes (0.0 weight) |
-| `Info` | Informational result only (e.g., technology detection). | ❌ No |
+| `Passed` | Audit check succeeded. |  Yes (1.0 weight) |
+| `Warning` | Check has concerns but is not a hard failure. |  Yes (0.5 weight) |
+| `Failed` | Audit check failed. |  Yes (0.0 weight) |
+| `Info` | Informational result only (e.g., technology detection). |  No |
 
 ---
 
